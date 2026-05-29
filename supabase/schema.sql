@@ -136,6 +136,7 @@ create table if not exists public.proposals (
   expiration_date date,
   status          text default 'rascunho',
   public_token    text unique,
+  terms           text,
   created_at      timestamptz default now()
 );
 create index if not exists proposals_user_idx on public.proposals(user_id);

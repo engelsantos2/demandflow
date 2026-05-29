@@ -70,7 +70,7 @@ import { effectiveStatus } from '../lib/finance'
 import { FIN_STATUS, CONTRACT_STATUS_MAP } from '../lib/constants'
 import { downloadCSV, exportPDF } from '../lib/export'
 import {
-  accountBalance,
+  accountRealBalance,
   totalRealBalance,
   ACCOUNT_TYPES,
 } from '../lib/bankAccounts'
@@ -1233,20 +1233,23 @@ function TransferList({ transfers, accountName, onEdit, onDelete, onNew, canTran
 }
 
 function BankAccountsTab({ accounts, entries, onNew, onEdit, onDelete, onToggle, onStatement }) {
+  // IMPORTANTE: saldo de conta é SEMPRE o saldo REAL (recebidos + pagos +
+  // transferências). Receitas pendentes NÃO entram no saldo até serem
+  // efetivamente recebidas.
   const included = accounts.filter((a) => a.includeInTotal)
-  const totalVisible = included.reduce((s, a) => s + accountBalance(a, entries), 0)
-  const totalAll = accounts.reduce((s, a) => s + accountBalance(a, entries), 0)
+  const totalVisible = included.reduce((s, a) => s + accountRealBalance(a, entries), 0)
+  const totalAll = accounts.reduce((s, a) => s + accountRealBalance(a, entries), 0)
 
   return (
     <>
       <div className="grid cols-3">
         <div className="panel">
-          <div className="kv-label">Saldo total previsto</div>
+          <div className="kv-label">Saldo total</div>
           <div className="font-bold text-neon" style={{ fontSize: 24 }}>
             {currency(totalVisible)}
           </div>
           <div className="text-xs text-2 mt-8">
-            Soma das contas marcadas para aparecer no saldo.
+            Saldo real das contas marcadas (já recebido/pago).
           </div>
         </div>
         <div className="panel">
@@ -1255,7 +1258,7 @@ function BankAccountsTab({ accounts, entries, onNew, onEdit, onDelete, onToggle,
             {currency(totalAll)}
           </div>
           <div className="text-xs text-2 mt-8">
-            Incluindo contas ocultas do saldo previsto.
+            Incluindo contas ocultas.
           </div>
         </div>
         <div className="panel flex items-center justify-between">
@@ -1287,7 +1290,7 @@ function BankAccountsTab({ accounts, entries, onNew, onEdit, onDelete, onToggle,
           </div>
         )}
         {accounts.map((a) => {
-          const saldo = accountBalance(a, entries)
+          const saldo = accountRealBalance(a, entries)
           const typeLabel = ACCOUNT_TYPE_LABEL[a.type] || a.type
           return (
             <div
