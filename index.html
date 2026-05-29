@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#050807" />
+    <meta
+      name="description"
+      content="DemandFlow — sistema completo de gestão para estúdios de design e branding: demandas, clientes, propostas, financeiro e relatórios."
+    />
+    <meta name="author" content="DemandFlow" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph / Social -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="DemandFlow — Gestão de estúdio" />
+    <meta
+      property="og:description"
+      content="Sistema completo de gestão para estúdios de design e branding. Demandas, clientes, propostas, financeiro e relatórios em um só lugar."
+    />
+    <meta property="og:locale" content="pt_BR" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="DemandFlow — Gestão de estúdio" />
+    <meta
+      name="twitter:description"
+      content="Sistema completo de gestão para estúdios de design e branding."
+    />
+
+    <title>DemandFlow — Gestão de estúdio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #050807;
+      }
+      /* Spinner inicial enquanto o JS principal não carrega */
+      .app-boot {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #050807;
+      }
+      .app-boot::after {
+        content: '';
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 2px solid rgba(0, 255, 133, 0.25);
+        border-top-color: #00ff85;
+        animation: appBoot 0.8s linear infinite;
+      }
+      @keyframes appBoot {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="app-boot" aria-hidden="true"></div>
+    </div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
