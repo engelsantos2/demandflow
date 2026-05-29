@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect } from 'react'
+import { Suspense, lazy, useEffect, useRef } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { UIProvider } from './components/UIProvider'
 import { AuthProvider, useAuth } from './components/AuthProvider'
@@ -42,14 +42,24 @@ function RequireAuth({ children }) {
 
 function InitRecurring() {
   const { user, loading } = useAuth()
+  const ranForRef = useRef(null)
   useEffect(() => {
     if (loading || !user) return
-    // Só executa após cache estar carregado (loading === false e user válido).
-    try {
-      processRecurring()
-    } catch (err) {
-      console.warn('processRecurring falhou', err)
-    }
+    // Roda processRecurring no máximo UMA VEZ por usuário/sessão.
+    // Sem isso, qualquer re-render que mudasse a referência de `user` dispararia
+    // a função de novo — e processRecurring chama insert() em cascata, podendo
+    // entrar em loop de re-renders.
+    if (ranForRef.current === user.id) return
+    ranForRef.current = user.id
+    // Pequeno delay garante que loadForUser populou tudo antes.
+    const t = setTimeout(() => {
+      try {
+        processRecurring()
+      } catch (err) {
+        console.warn('processRecurring falhou', err)
+      }
+    }, 600)
+    return () => clearTimeout(t)
   }, [user, loading])
   return null
 }

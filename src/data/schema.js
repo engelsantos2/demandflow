@@ -39,7 +39,10 @@ export function rowToObject(row) {
   if (!row || typeof row !== 'object') return row
   const out = {}
   for (const key of Object.keys(row)) {
-    out[toCamel(key)] = row[key]
+    // Inversamente: converte null vindo do banco em '' nos campos que o app
+    // espera como string — UUIDs/datas opcionais e strings curtas.
+    const val = row[key]
+    out[toCamel(key)] = val === null ? '' : val
   }
   return out
 }
@@ -53,7 +56,12 @@ export function objectToRow(obj) {
       out.id = obj.id
       continue
     }
-    out[toSnake(key)] = obj[key]
+    const val = obj[key]
+    // CRÍTICO: Postgres rejeita string vazia em colunas tipadas (UUID, date,
+    // numeric, etc.). O app usa '' como valor "vazio" em vários campos, mas
+    // para o banco precisamos enviar NULL. Aplicar pra qualquer chave que
+    // não seja claramente "text" — mais seguro converter sempre.
+    out[toSnake(key)] = val === '' ? null : val
   }
   return out
 }
