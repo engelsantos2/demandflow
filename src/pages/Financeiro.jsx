@@ -1,13 +1,8 @@
 import { useMemo, useState } from 'react'
 import {
-  AreaChart,
-  Area,
   PieChart,
   Pie,
   Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
@@ -46,6 +41,8 @@ import TransferModal from '../components/TransferModal'
 import BankAccountModal from '../components/BankAccountModal'
 import BankStatementModal from '../components/BankStatementModal'
 import RecurringContractModal from '../components/RecurringContractModal'
+import BalanceCard from '../components/BalanceCard'
+import EconomyGauge from '../components/EconomyGauge'
 import RecurrenceScopeModal from '../components/RecurrenceScopeModal'
 import CategoryModal from '../components/CategoryModal'
 import CustomizeMetricsModal from '../components/CustomizeMetricsModal'
@@ -59,7 +56,6 @@ import {
   formatDate,
   monthKey,
   currentMonthKey,
-  monthLabel,
   lastMonths,
   todayISO,
   daysUntil,
@@ -275,6 +271,32 @@ export default function Financeiro() {
       return dd !== null && dd >= 0 && dd <= 30
     })
 
+    // ===== Dados do MÊS ANTERIOR (pra comparativo de economia) =====
+    // Usa só entries reais (mês anterior já passou — sem projeções).
+    const prevPeriod =
+      period === 'all' ? null : addMonths(`${period}-01`, -1).slice(0, 7)
+    const inPrev = (key) => prevPeriod && key === prevPeriod
+    const prevReceitas = prevPeriod
+      ? db.financialEntries
+          .filter(
+            (e) =>
+              e.type === 'receita' &&
+              e.status !== 'cancelado' &&
+              inPrev(refMonth(e)),
+          )
+          .reduce((s, e) => s + e.value, 0)
+      : 0
+    const prevDespesas = prevPeriod
+      ? db.financialEntries
+          .filter(
+            (e) =>
+              e.type === 'despesa' &&
+              e.status !== 'cancelado' &&
+              inPrev(refMonth(e)),
+          )
+          .reduce((s, e) => s + e.value, 0)
+      : 0
+
     return {
       saldoTotal,
       saldoPrevistoMes,
@@ -286,6 +308,9 @@ export default function Financeiro() {
       despesasPendentes,
       totalAReceber,
       totalAPagar,
+      prevPeriod,
+      prevReceitas,
+      prevDespesas,
       contasVencidasCount: contasVencidas.length,
       contasVencidasValor: contasVencidas.reduce((s, e) => s + e.value, 0),
       contasAVencerCount: contasAVencer.length,
@@ -361,18 +386,6 @@ export default function Financeiro() {
   )
 
   // ------- gráficos -------
-  const monthly = useMemo(() => {
-    return lastMonths(6).map((key) => ({
-      mes: monthLabel(key),
-      Receita: db.financialEntries
-        .filter((e) => e.type === 'receita' && e.status !== 'cancelado' && refMonth(e) === key)
-        .reduce((s, e) => s + e.value, 0),
-      Despesa: db.financialEntries
-        .filter((e) => e.type === 'despesa' && e.status !== 'cancelado' && refMonth(e) === key)
-        .reduce((s, e) => s + e.value, 0),
-    }))
-  }, [db.financialEntries])
-
   const byCategory = useMemo(() => {
     const map = {}
     db.financialEntries
@@ -610,6 +623,7 @@ export default function Financeiro() {
         subtitle="Receitas, despesas, contas e transferências"
         actions={
           <>
+            <MonthStepper value={period} months={months} onChange={setPeriod} />
             <button
               className="btn"
               onClick={() => {
@@ -664,71 +678,66 @@ export default function Financeiro() {
 
       {tab === 'visao' ? (
         <>
-          <div className="grid cols-2">
-            <div className="panel">
-              <div className="panel-head">
-                <div>
-                  <div className="panel-title">Receitas x Despesas</div>
-                  <div className="panel-sub">Últimos 6 meses</div>
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={240}>
-                <AreaChart data={monthly} margin={{ left: -18, right: 6, top: 6 }}>
-                  <defs>
-                    <linearGradient id="fr" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#00FF85" stopOpacity={0.45} />
-                      <stop offset="100%" stopColor="#00FF85" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="fd" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#EF4444" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="#EF4444" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="#18211c" vertical={false} />
-                  <XAxis dataKey="mes" stroke="#5f6b64" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#5f6b64" fontSize={11} tickLine={false} axisLine={false}
-                    tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Area type="monotone" dataKey="Receita" stroke="#00FF85" strokeWidth={2} fill="url(#fr)" />
-                  <Area type="monotone" dataKey="Despesa" stroke="#EF4444" strokeWidth={2} fill="url(#fd)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+          {/* 3 boxes: Balanço | Economia atual | Economia anterior */}
+          <div className="grid cols-3">
+            <BalanceCard
+              title="Balanço mensal"
+              monthKey={period === 'all' ? null : period}
+              showMonth
+              receitas={m.receitaTotalMes}
+              despesas={m.despesasMes}
+            />
+            <EconomyGauge
+              title="Economia mensal"
+              monthKey={period === 'all' ? null : period}
+              showMonth
+              receitas={m.receitaTotalMes}
+              despesas={m.despesasMes}
+            />
+            <EconomyGauge
+              title="Economia — mês anterior"
+              monthKey={m.prevPeriod}
+              showMonth
+              receitas={m.prevReceitas}
+              despesas={m.prevDespesas}
+              subtle
+            />
+          </div>
 
-            <div className="panel">
-              <div className="panel-head">
-                <div>
-                  <div className="panel-title">Despesas por categoria</div>
-                  <div className="panel-sub">Total acumulado</div>
+          {/* Categorias de despesas (full width) */}
+          <div className="panel mt-24">
+            <div className="panel-head">
+              <div>
+                <div className="panel-title">Despesas por categoria</div>
+                <div className="panel-sub">Total acumulado</div>
+              </div>
+            </div>
+            {byCategory.length === 0 ? (
+              <p className="text-sm text-2">Nenhuma despesa registrada.</p>
+            ) : (
+              <div className="flex items-center gap-16 wrap">
+                <ResponsiveContainer width={180} height={180}>
+                  <PieChart>
+                    <Pie data={byCategory} dataKey="value" innerRadius={45} outerRadius={75} paddingAngle={3} stroke="none">
+                      {byCategory.map((d, i) => (
+                        <Cell key={i} fill={d.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<ChartTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  {byCategory.map((d) => (
+                    <div key={d.name} className="flex items-center justify-between text-sm" style={{ padding: '3px 0' }}>
+                      <span className="flex items-center gap-8">
+                        <span className="dot-sm" style={{ background: d.fill }} /> {d.name}
+                      </span>
+                      <span className="font-bold">{currency(d.value)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-              {byCategory.length === 0 ? (
-                <p className="text-sm text-2">Nenhuma despesa registrada.</p>
-              ) : (
-                <div className="flex items-center gap-16 wrap">
-                  <ResponsiveContainer width={180} height={180}>
-                    <PieChart>
-                      <Pie data={byCategory} dataKey="value" innerRadius={45} outerRadius={75} paddingAngle={3} stroke="none">
-                        {byCategory.map((d, i) => (
-                          <Cell key={i} fill={d.fill} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<ChartTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div style={{ flex: 1, minWidth: 160 }}>
-                    {byCategory.map((d) => (
-                      <div key={d.name} className="flex items-center justify-between text-sm" style={{ padding: '3px 0' }}>
-                        <span className="flex items-center gap-8">
-                          <span className="dot-sm" style={{ background: d.fill }} /> {d.name}
-                        </span>
-                        <span className="font-bold">{currency(d.value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           <div className="panel mt-24">
@@ -790,7 +799,6 @@ export default function Financeiro() {
             </div>
           )}
           <div className="toolbar">
-            <MonthStepper value={period} months={months} onChange={setPeriod} />
             <select className="select" style={{ width: 'auto' }} value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
               <option value="">Todos os status</option>
               {['pendente', 'atrasado', 'recebido', 'pago', 'cancelado'].map((s) => (
