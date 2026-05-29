@@ -79,12 +79,37 @@ export function useDB() {
 // Carga inicial — chamado pelo AuthProvider quando há sessão ativa
 // =============================================================================
 
+// Deduplicação: se loadForUser está em andamento para o mesmo userId, evita
+// disparar chamadas paralelas. Compartilha a Promise para que callers
+// concorrentes esperem o mesmo resultado.
+let _inFlightUserId = null
+let _inFlightPromise = null
+
 export async function loadForUser(userId) {
-  console.log('[df store] loadForUser INÍCIO', userId)
   if (!userId) {
     setDBState({ ...emptyDB() })
     return
   }
+  // Já temos esse usuário carregado E não há loading em andamento? Pula.
+  if (db._userId === userId && !db._loading && db.users?.length > 0 && !_inFlightPromise) {
+    console.log('[df store] loadForUser SKIP — já carregado para', userId)
+    return
+  }
+  // Mesma chamada já está em andamento — aguarda
+  if (_inFlightUserId === userId && _inFlightPromise) {
+    console.log('[df store] loadForUser AGUARDANDO chamada em andamento')
+    return _inFlightPromise
+  }
+  console.log('[df store] loadForUser INÍCIO', userId)
+  _inFlightUserId = userId
+  _inFlightPromise = _doLoadForUser(userId).finally(() => {
+    _inFlightUserId = null
+    _inFlightPromise = null
+  })
+  return _inFlightPromise
+}
+
+async function _doLoadForUser(userId) {
   setDBState({ ...db, _loading: true, _userId: userId })
 
   // Cada query individualmente protegida — uma falha não derruba o resto.
