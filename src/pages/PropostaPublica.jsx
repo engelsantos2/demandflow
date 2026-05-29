@@ -78,7 +78,6 @@ async function tryUpdatePublicProposalStatus(id, patch) {
 
 export default function PropostaPublica() {
   const { token } = useParams()
-  const navigate = useNavigate()
   const { toast, confirm } = useUI()
   const viewedRef = useRef(false)
   const docRef = useRef(null)
