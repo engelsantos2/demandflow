@@ -32,21 +32,25 @@ async function fetchPublicProposal(token) {
   const proposal = rowToObject(proposalRow)
 
   // Itens da proposta (também públicos via policy)
-  const { data: itemsData } = await supabase
+  const { data: itemsData, error: itemsErr } = await supabase
     .from('proposal_items')
     .select('*')
     .eq('proposal_id', proposal.id)
+  if (itemsErr) console.warn('[proposta-pública] erro items:', itemsErr.message)
   const items = (itemsData || []).map(rowToObject)
+  console.log('[proposta-pública] items carregados:', items.length)
 
   // Cliente — pode falhar por RLS, retorna parcial
   let client = null
   if (proposal.clientId) {
-    const { data: clientData } = await supabase
+    const { data: clientData, error: clientErr } = await supabase
       .from('clients')
       .select('*')
       .eq('id', proposal.clientId)
       .maybeSingle()
+    if (clientErr) console.warn('[proposta-pública] erro cliente:', clientErr.message)
     if (clientData) client = rowToObject(clientData)
+    console.log('[proposta-pública] cliente carregado?', !!client)
   }
 
   // Settings do dono da proposta — pra mostrar nome da empresa, etc.
@@ -388,11 +392,6 @@ export default function PropostaPublica() {
             </p>
           </div>
         )}
-
-        <div className="proposal-section">
-          <h3>Dados para pagamento</h3>
-          <p className="text-sm text-2">{settings.bankInfo}</p>
-        </div>
 
         {proposal.status === 'aprovada' ? (
           <div className="proposal-section" style={{ textAlign: 'center' }}>
