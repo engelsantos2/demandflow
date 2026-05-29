@@ -36,8 +36,18 @@ export function AuthProvider({ children }) {
   // Carrega sessão inicial e escuta mudanças (login/logout em outras abas).
   // Importante: SEMPRE liberar `loading` no finally, senão um erro silencioso
   // em loadForUser deixaria o app travado num spinner eterno.
+  // Também aplicamos um timeout de segurança — se loadForUser não voltar em
+  // 15s, libera assim mesmo. Pior caso o cache fica vazio, mas o app abre.
   useEffect(() => {
     let mounted = true
+
+    const withTimeout = (p) =>
+      Promise.race([
+        p,
+        new Promise((_, rej) =>
+          setTimeout(() => rej(new Error('[auth] loadForUser timeout (15s)')), 15000),
+        ),
+      ])
 
     supabase.auth
       .getSession()
@@ -46,7 +56,7 @@ export function AuthProvider({ children }) {
         setSession(data.session || null)
         if (data.session?.user?.id) {
           try {
-            await loadForUser(data.session.user.id)
+            await withTimeout(loadForUser(data.session.user.id))
           } catch (err) {
             console.error('[auth] loadForUser falhou:', err)
           }
@@ -57,18 +67,23 @@ export function AuthProvider({ children }) {
         if (mounted) setLoading(false)
       })
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, sess) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, sess) => {
+      // Evita reagir a refresh de token quando já temos sessão.
+      if (event === 'TOKEN_REFRESHED') {
+        setSession(sess || null)
+        return
+      }
       setSession(sess || null)
-      if (sess?.user?.id) {
+      if (sess?.user?.id && event === 'SIGNED_IN') {
         setLoading(true)
         try {
-          await loadForUser(sess.user.id)
+          await withTimeout(loadForUser(sess.user.id))
         } catch (err) {
           console.error('[auth] loadForUser falhou (auth change):', err)
         } finally {
           setLoading(false)
         }
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         clearForLogout()
       }
     })

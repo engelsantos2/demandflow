@@ -6,19 +6,21 @@ import { ThemeProvider } from './components/ThemeProvider'
 import Layout from './components/Layout'
 import { canAccess } from './lib/permissions'
 import { processRecurring } from './lib/recurring'
+import { lazyRetry } from './lib/lazyRetry'
+import ErrorBoundary from './components/ErrorBoundary'
 
-const Dashboard = lazy(() => import('./pages/Dashboard'))
-const Demandas = lazy(() => import('./pages/Demandas'))
-const Clientes = lazy(() => import('./pages/Clientes'))
-const ClienteDetalhe = lazy(() => import('./pages/ClienteDetalhe'))
-const Financeiro = lazy(() => import('./pages/Financeiro'))
-const Propostas = lazy(() => import('./pages/Propostas'))
-const Produtos = lazy(() => import('./pages/Produtos'))
-const Relatorios = lazy(() => import('./pages/Relatorios'))
-const Configuracoes = lazy(() => import('./pages/Configuracoes'))
-const PropostaPublica = lazy(() => import('./pages/PropostaPublica'))
-const Login = lazy(() => import('./pages/Login'))
-const Signup = lazy(() => import('./pages/Signup'))
+const Dashboard = lazy(() => lazyRetry(() => import('./pages/Dashboard')))
+const Demandas = lazy(() => lazyRetry(() => import('./pages/Demandas')))
+const Clientes = lazy(() => lazyRetry(() => import('./pages/Clientes')))
+const ClienteDetalhe = lazy(() => lazyRetry(() => import('./pages/ClienteDetalhe')))
+const Financeiro = lazy(() => lazyRetry(() => import('./pages/Financeiro')))
+const Propostas = lazy(() => lazyRetry(() => import('./pages/Propostas')))
+const Produtos = lazy(() => lazyRetry(() => import('./pages/Produtos')))
+const Relatorios = lazy(() => lazyRetry(() => import('./pages/Relatorios')))
+const Configuracoes = lazy(() => lazyRetry(() => import('./pages/Configuracoes')))
+const PropostaPublica = lazy(() => lazyRetry(() => import('./pages/PropostaPublica')))
+const Login = lazy(() => lazyRetry(() => import('./pages/Login')))
+const Signup = lazy(() => lazyRetry(() => import('./pages/Signup')))
 
 function Fallback() {
   return (
@@ -54,6 +56,7 @@ function InitRecurring() {
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <ThemeProvider>
       <AuthProvider>
         <UIProvider>
@@ -86,5 +89,6 @@ export default function App() {
         </UIProvider>
       </AuthProvider>
     </ThemeProvider>
+    </ErrorBoundary>
   )
 }
