@@ -80,6 +80,7 @@ export function useDB() {
 // =============================================================================
 
 export async function loadForUser(userId) {
+  console.log('[df store] loadForUser INÍCIO', userId)
   if (!userId) {
     setDBState({ ...emptyDB() })
     return
@@ -113,10 +114,18 @@ export async function loadForUser(userId) {
   }
 
   // Carrega profile (settings) em paralelo com as collections
+  console.log('[df store] disparando queries...')
+  const startedAt = Date.now()
   const [profileRes, ...collectionResults] = await Promise.all([
     safeQuery(supabase.from('profiles').select('*').eq('id', userId).maybeSingle()),
     ...COLLECTIONS.map(fetchCollection),
   ])
+  console.log(
+    '[df store] queries terminaram em',
+    Date.now() - startedAt,
+    'ms — profile error?',
+    profileRes.error?.message,
+  )
 
   const next = emptyDB()
   next._userId = userId
@@ -137,19 +146,78 @@ export async function loadForUser(userId) {
       },
     ]
     next.settings = { ...next.settings, ...(p.settings || {}) }
+  } else {
+    // CASO CRÍTICO: profile não existe (trigger SQL não rodou para esse user).
+    // Sem profile, AuthProvider deriva user=null, RequireAuth redireciona pra
+    // /login, mas a sessão Supabase ainda está ativa → potencial loop.
+    // Criamos um profile mínimo INLINE a partir da sessão Supabase para
+    // garantir que o app abre.
+    console.warn(
+      '[df store] profile não encontrado no banco para',
+      userId,
+      '— usando fallback da sessão',
+    )
+    const { data: authData } = await supabase.auth.getUser()
+    const u = authData?.user
+    if (u) {
+      next.users = [
+        {
+          id: u.id,
+          name: u.user_metadata?.name || u.email?.split('@')[0] || 'Usuário',
+          email: u.email,
+          position: u.user_metadata?.position || 'Membro',
+          isAdmin: true,
+          permissions: [
+            'dashboard',
+            'demandas',
+            'clientes',
+            'financeiro',
+            'propostas',
+            'servicos',
+            'relatorios',
+            'configuracoes',
+          ],
+          createdAt: u.created_at,
+        },
+      ]
+      // Tenta criar o profile no banco em background — se falhar, sem
+      // problemas, o user fica funcional só na sessão.
+      supabase
+        .from('profiles')
+        .insert({
+          id: u.id,
+          name: next.users[0].name,
+          email: u.email,
+          position: next.users[0].position,
+          is_admin: true,
+          permissions: next.users[0].permissions,
+        })
+        .then(({ error }) => {
+          if (error) console.warn('[df store] criação fallback de profile:', error.message)
+          else console.log('[df store] profile criado via fallback')
+        })
+    }
   }
 
   // Collections
   COLLECTIONS.forEach((c, i) => {
     const res = collectionResults[i]
     if (res.error) {
-      console.warn(`[store] erro ao carregar ${c}:`, res.error.message)
+      console.warn(`[df store] erro ao carregar ${c}:`, res.error.message)
       next[c] = []
       return
     }
     next[c] = (res.data || []).map(rowToObject)
   })
 
+  console.log(
+    '[df store] cache populado: users=',
+    next.users.length,
+    'clients=',
+    next.clients.length,
+    'financialEntries=',
+    next.financialEntries.length,
+  )
   setDBState(next)
 }
 

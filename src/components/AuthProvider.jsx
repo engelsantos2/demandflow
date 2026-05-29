@@ -40,34 +40,45 @@ export function AuthProvider({ children }) {
   // 15s, libera assim mesmo. Pior caso o cache fica vazio, mas o app abre.
   useEffect(() => {
     let mounted = true
+    console.log('[df] AuthProvider mount')
 
     const withTimeout = (p) =>
       Promise.race([
         p,
         new Promise((_, rej) =>
-          setTimeout(() => rej(new Error('[auth] loadForUser timeout (15s)')), 15000),
+          setTimeout(() => rej(new Error('[df] loadForUser timeout (15s)')), 15000),
         ),
       ])
 
     supabase.auth
       .getSession()
       .then(async ({ data }) => {
-        if (!mounted) return
+        console.log('[df] getSession resolveu, session?', !!data.session)
+        if (!mounted) {
+          console.log('[df] componente desmontado, ignorando getSession')
+          return
+        }
         setSession(data.session || null)
         if (data.session?.user?.id) {
+          console.log('[df] chamando loadForUser para', data.session.user.email)
           try {
             await withTimeout(loadForUser(data.session.user.id))
+            console.log('[df] loadForUser terminou')
           } catch (err) {
-            console.error('[auth] loadForUser falhou:', err)
+            console.error('[df] loadForUser falhou:', err)
           }
         }
       })
-      .catch((err) => console.error('[auth] getSession falhou:', err))
+      .catch((err) => console.error('[df] getSession falhou:', err))
       .finally(() => {
-        if (mounted) setLoading(false)
+        if (mounted) {
+          console.log('[df] setLoading(false) — UI pode renderizar')
+          setLoading(false)
+        }
       })
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, sess) => {
+      console.log('[df] onAuthStateChange:', event, 'session?', !!sess)
       // Evita reagir a refresh de token quando já temos sessão.
       if (event === 'TOKEN_REFRESHED') {
         setSession(sess || null)
@@ -75,20 +86,24 @@ export function AuthProvider({ children }) {
       }
       setSession(sess || null)
       if (sess?.user?.id && event === 'SIGNED_IN') {
+        console.log('[df] SIGNED_IN: disparando loadForUser')
         setLoading(true)
         try {
           await withTimeout(loadForUser(sess.user.id))
+          console.log('[df] loadForUser (SIGNED_IN) terminou')
         } catch (err) {
-          console.error('[auth] loadForUser falhou (auth change):', err)
+          console.error('[df] loadForUser falhou (auth change):', err)
         } finally {
           setLoading(false)
         }
       } else if (event === 'SIGNED_OUT') {
+        console.log('[df] SIGNED_OUT: limpando cache')
         clearForLogout()
       }
     })
 
     return () => {
+      console.log('[df] AuthProvider unmount')
       mounted = false
       sub.subscription.unsubscribe()
     }
