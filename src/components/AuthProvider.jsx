@@ -33,25 +33,41 @@ export function AuthProvider({ children }) {
   // 'loading' enquanto verifica sessão inicial / carrega dados do usuário.
   const [loading, setLoading] = useState(true)
 
-  // Carrega sessão inicial e escuta mudanças (login/logout em outras abas)
+  // Carrega sessão inicial e escuta mudanças (login/logout em outras abas).
+  // Importante: SEMPRE liberar `loading` no finally, senão um erro silencioso
+  // em loadForUser deixaria o app travado num spinner eterno.
   useEffect(() => {
     let mounted = true
 
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!mounted) return
-      setSession(data.session || null)
-      if (data.session?.user?.id) {
-        await loadForUser(data.session.user.id)
-      }
-      setLoading(false)
-    })
+    supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
+        if (!mounted) return
+        setSession(data.session || null)
+        if (data.session?.user?.id) {
+          try {
+            await loadForUser(data.session.user.id)
+          } catch (err) {
+            console.error('[auth] loadForUser falhou:', err)
+          }
+        }
+      })
+      .catch((err) => console.error('[auth] getSession falhou:', err))
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, sess) => {
       setSession(sess || null)
       if (sess?.user?.id) {
         setLoading(true)
-        await loadForUser(sess.user.id)
-        setLoading(false)
+        try {
+          await loadForUser(sess.user.id)
+        } catch (err) {
+          console.error('[auth] loadForUser falhou (auth change):', err)
+        } finally {
+          setLoading(false)
+        }
       } else {
         clearForLogout()
       }

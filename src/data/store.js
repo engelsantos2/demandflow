@@ -86,15 +86,24 @@ export async function loadForUser(userId) {
   }
   setDBState({ ...db, _loading: true, _userId: userId })
 
+  // Cada query individualmente protegida — uma falha não derruba o resto.
+  const safeQuery = (promise) =>
+    promise.then(
+      (res) => res,
+      (err) => ({ data: null, error: err }),
+    )
+
   // Carrega profile (settings) em paralelo com as collections
   const [profileRes, ...collectionResults] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+    safeQuery(supabase.from('profiles').select('*').eq('id', userId).maybeSingle()),
     ...COLLECTIONS.map((c) =>
-      supabase
-        .from(tableOf(c))
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false }),
+      safeQuery(
+        supabase
+          .from(tableOf(c))
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false }),
+      ),
     ),
   ])
 
