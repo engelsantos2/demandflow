@@ -283,23 +283,14 @@ export function insert(collection, item) {
     user_id: userId,
     created_at: record.createdAt,
   }
-  console.log(`[store] insert ${collection} →`, row)
   const promise = supabase
     .from(tableOf(collection))
     .insert(row)
-    .then(({ error, data }) => {
+    .then(({ error }) => {
       if (error) {
-        console.error(
-          `[store] INSERT FALHOU em ${collection}:`,
-          error.message,
-          'detalhes:',
-          error,
-          'payload:',
-          row,
-        )
+        console.warn(`[store] insert falhou em ${collection}:`, error.message)
         throw error
       }
-      console.log(`[store] insert ${collection} OK`, data)
       return record
     })
     .finally(() => {
