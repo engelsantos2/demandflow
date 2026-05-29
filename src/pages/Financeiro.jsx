@@ -199,16 +199,24 @@ export default function Financeiro() {
   //  • Contas vencidas       = entries pendentes com dueDate no passado.
   //  • Contas a vencer (30d) = entries pendentes vencendo nos próximos 30 dias.
   const m = useMemo(() => {
-    const all = db.financialEntries
+    // IMPORTANTE: usamos `enrichedEntries` (não db.financialEntries) para que
+    // entries PROJETADAS de contratos recorrentes apareçam nos cards quando
+    // o usuário navega para um mês futuro. Saldo total continua sendo
+    // calculado a partir das entries reais (saldo de verdade na conta).
+    const all = enrichedEntries
     const inPeriod = (key) => period === 'all' || key === period
 
     const receitas = all.filter((e) => e.type === 'receita' && e.status !== 'cancelado')
     const despesas = all.filter((e) => e.type === 'despesa' && e.status !== 'cancelado')
 
+    // Recebido = status 'recebido' do período (entries reais — virtuais nunca
+    // estão recebidas).
     const receitasRecebidas = receitas
       .filter((e) => e.status === 'recebido' && inPeriod(refMonth(e)))
       .reduce((s, e) => s + e.value, 0)
 
+    // Pendentes = tudo que NÃO está recebido com vencimento no período.
+    // Inclui entries projetadas/previstas (status 'previsto' ou 'pendente').
     const receitasPendentes = receitas
       .filter((e) => e.status !== 'recebido' && inPeriod(monthKey(e.dueDate)))
       .reduce((s, e) => s + e.value, 0)
@@ -227,22 +235,30 @@ export default function Financeiro() {
     const saldoTotal = totalRealBalance(db.bankAccounts, db.financialEntries)
     const saldoPrevistoMes = receitaTotalMes - despesasMes
 
-    const totalAReceber = receitas
+    // Totais globais usam SÓ entries reais (não soma futuros projetados, que
+    // seriam infinitos).
+    const realReceitas = db.financialEntries.filter(
+      (e) => e.type === 'receita' && e.status !== 'cancelado',
+    )
+    const realDespesas = db.financialEntries.filter(
+      (e) => e.type === 'despesa' && e.status !== 'cancelado',
+    )
+    const totalAReceber = realReceitas
       .filter((e) => e.status !== 'recebido')
       .reduce((s, e) => s + e.value, 0)
-    const totalAPagar = despesas
+    const totalAPagar = realDespesas
       .filter((e) => e.status !== 'pago')
       .reduce((s, e) => s + e.value, 0)
 
-    // Contas vencidas / a vencer (globais, baseadas na data de hoje)
-    const contasVencidas = all.filter((e) => {
+    // Contas vencidas / a vencer (globais, baseadas só em entries REAIS)
+    const contasVencidas = db.financialEntries.filter((e) => {
       if (e.type === 'transferencia') return false
       if (e.status === 'recebido' || e.status === 'pago' || e.status === 'cancelado')
         return false
       const dd = daysUntil(e.dueDate)
       return dd !== null && dd < 0
     })
-    const contasAVencer = all.filter((e) => {
+    const contasAVencer = db.financialEntries.filter((e) => {
       if (e.type === 'transferencia') return false
       if (e.status === 'recebido' || e.status === 'pago' || e.status === 'cancelado')
         return false
@@ -266,7 +282,7 @@ export default function Financeiro() {
       contasAVencerCount: contasAVencer.length,
       contasAVencerValor: contasAVencer.reduce((s, e) => s + e.value, 0),
     }
-  }, [db.financialEntries, db.bankAccounts, period])
+  }, [db.financialEntries, db.bankAccounts, enrichedEntries, period])
 
   // Mapa de ícones referenciados pelo catálogo (lib/financeiroMetrics.js)
   const FIN_ICONS = {
