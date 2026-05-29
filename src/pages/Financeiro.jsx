@@ -238,7 +238,11 @@ export default function Financeiro() {
     const despesasMes = despesasPagas + despesasPendentes
 
     const saldoTotal = totalRealBalance(db.bankAccounts, db.financialEntries)
-    const saldoPrevistoMes = receitaTotalMes - despesasMes
+    // Saldo previsto do mês = "Com quanto vou fechar o mês?"
+    // Fórmula: saldo atual + o que ainda vai ENTRAR - o que ainda vai SAIR.
+    // Usa pendentes (não totais) porque o que já foi recebido/pago já está
+    // refletido no saldoTotal — somar o total dobraria.
+    const saldoPrevistoMes = saldoTotal + receitasPendentes - despesasPendentes
 
     // Totais globais usam SÓ entries reais (não soma futuros projetados, que
     // seriam infinitos).

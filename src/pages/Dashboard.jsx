@@ -197,9 +197,11 @@ export default function Dashboard() {
 
     // Saldo total da conta é SEMPRE o saldo real (só entries reais quitadas).
     const saldoTotal = totalRealBalance(db.bankAccounts, db.financialEntries)
-    // Saldo previsto do mês = receita prevista - despesa prevista do mês.
-    // (Considera receitas projetadas de contratos quando navega no futuro.)
-    const saldoPrevistoMes = receitasPrevistas - despesasPrevistas
+    // Saldo previsto do mês = "Com quanto vou fechar o mês?"
+    // Fórmula: saldo atual + pendentes do mês - despesas pendentes do mês.
+    // Usa pendentes (não totais) porque o que já foi recebido/pago já está
+    // refletido no saldoTotal.
+    const saldoPrevistoMes = saldoTotal + receitasPendentes - despesasPendentes
 
     const lucroRealizado = receitasRecebidas - despesasPagas
     const lucroEstimado = receitasPrevistas - despesasPrevistas
