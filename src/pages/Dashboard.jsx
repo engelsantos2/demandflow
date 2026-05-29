@@ -71,7 +71,9 @@ import {
   daysUntil,
   relativeDeadline,
   addMonths,
+  lastDayOfMonth,
 } from '../lib/format'
+import { projectedEntries } from '../lib/projection'
 import {
   KANBAN_COLUMNS,
   PROPOSAL_STATUS,
@@ -132,6 +134,7 @@ export default function Dashboard() {
     const cur = currentMonthKey()
     const sel = period === 'all' ? cur : period
     const inPeriod = (key) => period === 'all' || key === sel
+    const isFuturePeriod = period !== 'all' && period > cur
 
     const demands = db.demands
     const open = demands.filter((d) => !['concluido', 'cancelado'].includes(d.status))
@@ -153,18 +156,34 @@ export default function Dashboard() {
     )
 
     const refMonth = (e) => monthKey(e.paymentDate || e.dueDate)
-    const receitas = db.financialEntries.filter(
+
+    // Quando o mês selecionado é futuro, inclui também as receitas/despesas
+    // PROJETADAS de contratos recorrentes para esse mês (entries virtuais).
+    // Assim os cards mostram corretamente o que está previsto para entrar/sair.
+    let entriesForPeriod = db.financialEntries
+    if (isFuturePeriod) {
+      const start = `${period}-01`
+      const end = lastDayOfMonth(period)
+      const projected = projectedEntries(db, start, end)
+      const realOther = db.financialEntries.filter((e) => refMonth(e) !== period)
+      entriesForPeriod = [...realOther, ...projected]
+    }
+
+    const receitas = entriesForPeriod.filter(
       (e) => e.type === 'receita' && e.status !== 'cancelado',
     )
-    const despesas = db.financialEntries.filter(
+    const despesas = entriesForPeriod.filter(
       (e) => e.type === 'despesa' && e.status !== 'cancelado',
     )
 
     const receitasRecebidas = receitas
       .filter((e) => e.status === 'recebido' && inPeriod(refMonth(e)))
       .reduce((s, e) => s + e.value, 0)
+    // Pendentes inclui status 'pendente' E 'previsto' (projetadas de contratos)
     const receitasPendentes = receitas
-      .filter((e) => e.status === 'pendente' && inPeriod(monthKey(e.dueDate)))
+      .filter(
+        (e) => e.status !== 'recebido' && inPeriod(monthKey(e.dueDate)),
+      )
       .reduce((s, e) => s + e.value, 0)
     const receitasPrevistas = receitasRecebidas + receitasPendentes
 
@@ -172,12 +191,15 @@ export default function Dashboard() {
       .filter((e) => e.status === 'pago' && inPeriod(refMonth(e)))
       .reduce((s, e) => s + e.value, 0)
     const despesasPendentes = despesas
-      .filter((e) => e.status === 'pendente' && inPeriod(monthKey(e.dueDate)))
+      .filter((e) => e.status !== 'pago' && inPeriod(monthKey(e.dueDate)))
       .reduce((s, e) => s + e.value, 0)
     const despesasPrevistas = despesasPagas + despesasPendentes
 
+    // Saldo total da conta é SEMPRE o saldo real (só entries reais quitadas).
     const saldoTotal = totalRealBalance(db.bankAccounts, db.financialEntries)
-    const saldoPrevistoMes = saldoTotal + receitasPendentes - despesasPendentes
+    // Saldo previsto do mês = receita prevista - despesa prevista do mês.
+    // (Considera receitas projetadas de contratos quando navega no futuro.)
+    const saldoPrevistoMes = receitasPrevistas - despesasPrevistas
 
     const lucroRealizado = receitasRecebidas - despesasPagas
     const lucroEstimado = receitasPrevistas - despesasPrevistas

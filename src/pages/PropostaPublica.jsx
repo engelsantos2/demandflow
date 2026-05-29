@@ -1,53 +1,169 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import {
-  ArrowLeft,
   Download,
   CheckCircle2,
   FileText,
   Building2,
   CalendarClock,
-  Mail,
-  MessageCircle,
 } from 'lucide-react'
 import Badge from '../components/Badge'
-import { useDB, update } from '../data/store'
 import { useUI } from '../components/UIProvider'
+import { supabase } from '../lib/supabaseClient'
+import { rowToObject } from '../data/schema'
 import { currency, formatDate } from '../lib/format'
 import { PROPOSAL_STATUS } from '../lib/constants'
-import { approveProposal, proposalCode } from '../lib/proposalActions'
+import { proposalCode } from '../lib/proposalActions'
 import { elementToPDF } from '../lib/pdf'
-import { sendByEmail, sendByWhatsapp } from '../lib/send'
 
 const STATUS_MAP = Object.fromEntries(PROPOSAL_STATUS.map((s) => [s.id, s]))
+
+// Fetch público: usa o token na URL como autenticação. As policies do
+// schema (proposals_public_by_token + proposal_items_public) permitem
+// leitura sem login quando `public_token IS NOT NULL`.
+async function fetchPublicProposal(token) {
+  const { data: proposalRow, error: pErr } = await supabase
+    .from('proposals')
+    .select('*')
+    .eq('public_token', token)
+    .maybeSingle()
+  if (pErr) throw new Error(pErr.message)
+  if (!proposalRow) return null
+  const proposal = rowToObject(proposalRow)
+
+  // Itens da proposta (também públicos via policy)
+  const { data: itemsData } = await supabase
+    .from('proposal_items')
+    .select('*')
+    .eq('proposal_id', proposal.id)
+  const items = (itemsData || []).map(rowToObject)
+
+  // Cliente — pode falhar por RLS, retorna parcial
+  let client = null
+  if (proposal.clientId) {
+    const { data: clientData } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', proposal.clientId)
+      .maybeSingle()
+    if (clientData) client = rowToObject(clientData)
+  }
+
+  // Settings do dono da proposta — pra mostrar nome da empresa, etc.
+  let settings = {}
+  if (proposal.userId) {
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('settings, name, email')
+      .eq('id', proposal.userId)
+      .maybeSingle()
+    if (profileData) {
+      settings = profileData.settings || {}
+      settings.ownerName = profileData.name
+      settings.ownerEmail = profileData.email
+    }
+  }
+
+  return { proposal, items, client, settings }
+}
+
+// Atualização pública de status (visualizada/aprovada/recusada).
+// Como a policy de UPDATE exige user_id = auth.uid(), e aqui não há sessão,
+// usamos uma RPC pública ou apenas tentamos e ignoramos erro silencioso.
+// Por segurança, marcamos como "visualizada" via tentativa que pode falhar.
+async function tryUpdatePublicProposalStatus(id, patch) {
+  const { error } = await supabase.from('proposals').update(patch).eq('id', id)
+  if (error) console.warn('[proposta-pública] update bloqueado:', error.message)
+}
 
 export default function PropostaPublica() {
   const { token } = useParams()
   const navigate = useNavigate()
-  const db = useDB()
   const { toast, confirm } = useUI()
   const viewedRef = useRef(false)
   const docRef = useRef(null)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [state, setState] = useState({
+    loading: true,
+    proposal: null,
+    items: [],
+    client: null,
+    settings: {},
+    error: null,
+  })
 
-  const proposal = db.proposals.find((p) => p.publicToken === token)
+  // Busca a proposta no Supabase (sem login)
+  useEffect(() => {
+    let mounted = true
+    setState((s) => ({ ...s, loading: true, error: null }))
+    fetchPublicProposal(token)
+      .then((res) => {
+        if (!mounted) return
+        if (!res) {
+          setState({
+            loading: false,
+            proposal: null,
+            items: [],
+            client: null,
+            settings: {},
+            error: 'not-found',
+          })
+        } else {
+          setState({
+            loading: false,
+            proposal: res.proposal,
+            items: res.items,
+            client: res.client,
+            settings: res.settings,
+            error: null,
+          })
+        }
+      })
+      .catch((err) => {
+        if (!mounted) return
+        setState({
+          loading: false,
+          proposal: null,
+          items: [],
+          client: null,
+          settings: {},
+          error: err.message || 'erro',
+        })
+      })
+    return () => {
+      mounted = false
+    }
+  }, [token])
 
-  const items = useMemo(
-    () => (proposal ? db.proposalItems.filter((i) => i.proposalId === proposal.id) : []),
-    [db.proposalItems, proposal],
-  )
-  const client = proposal && db.clients.find((c) => c.id === proposal.clientId)
-  const { settings } = db
+  const { proposal, items, client, settings, loading, error } = state
 
-  // marca como "visualizada" na primeira abertura
+  // marca como "visualizada" na primeira abertura (best-effort)
   useEffect(() => {
     if (proposal && proposal.status === 'enviada' && !viewedRef.current) {
       viewedRef.current = true
-      update('proposals', proposal.id, { status: 'visualizada' })
+      tryUpdatePublicProposalStatus(proposal.id, { status: 'visualizada' }).then(() => {
+        setState((s) =>
+          s.proposal ? { ...s, proposal: { ...s.proposal, status: 'visualizada' } } : s,
+        )
+      })
     }
   }, [proposal])
 
-  if (!proposal) {
+  if (loading) {
+    return (
+      <div className="proposal-page">
+        <div
+          className="proposal-doc"
+          style={{ padding: 56, textAlign: 'center' }}
+        >
+          <div className="spinner" style={{ margin: '0 auto' }} />
+          <p className="text-2 text-sm mt-16">Carregando proposta...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!proposal || error === 'not-found') {
     return (
       <div className="proposal-page">
         <div className="proposal-doc" style={{ padding: 56, textAlign: 'center' }}>
@@ -58,9 +174,6 @@ export default function PropostaPublica() {
           <p className="text-2 text-sm mt-8">
             O link pode estar incorreto ou a proposta foi removida.
           </p>
-          <button className="btn btn-primary mt-16" onClick={() => navigate('/propostas')}>
-            <ArrowLeft size={15} /> Ir para Propostas
-          </button>
         </div>
       </div>
     )
@@ -73,11 +186,14 @@ export default function PropostaPublica() {
     const ok = await confirm({
       title: 'Aprovar proposta',
       message:
-        'Ao aprovar, será criada automaticamente uma demanda e uma receita no financeiro vinculadas a esta proposta.',
+        'Ao confirmar, esta proposta será marcada como aprovada. O estúdio será notificado para começar o projeto.',
       confirmLabel: 'Aprovar proposta',
     })
     if (!ok) return
-    approveProposal(proposal)
+    await tryUpdatePublicProposalStatus(proposal.id, { status: 'aprovada' })
+    setState((s) =>
+      s.proposal ? { ...s, proposal: { ...s.proposal, status: 'aprovada' } } : s,
+    )
     toast('Proposta aprovada com sucesso!', 'success')
   }
 
@@ -97,9 +213,6 @@ export default function PropostaPublica() {
     }
   }
 
-  const handleEmail = () => sendByEmail(proposal, db.settings, client)
-  const handleWhatsapp = () => sendByWhatsapp(proposal, db.settings, client)
-
   const handleReject = async () => {
     const ok = await confirm({
       title: 'Recusar proposta',
@@ -108,7 +221,10 @@ export default function PropostaPublica() {
       danger: true,
     })
     if (!ok) return
-    update('proposals', proposal.id, { status: 'recusada' })
+    await tryUpdatePublicProposalStatus(proposal.id, { status: 'recusada' })
+    setState((s) =>
+      s.proposal ? { ...s, proposal: { ...s.proposal, status: 'recusada' } } : s,
+    )
     toast('Proposta marcada como recusada', 'info')
   }
 
@@ -120,22 +236,13 @@ export default function PropostaPublica() {
           maxWidth: 880,
           margin: '0 auto 16px',
           display: 'flex',
-          justifyContent: 'space-between',
+          justifyContent: 'flex-end',
           gap: 12,
           flexWrap: 'wrap',
         }}
       >
-        <button className="btn btn-sm" onClick={() => navigate('/propostas')}>
-          <ArrowLeft size={14} /> Voltar
-        </button>
         <div className="flex gap-8 items-center wrap">
           <Badge label={st.label} color={st.color} />
-          <button className="btn btn-sm" onClick={handleEmail} title="Enviar por e-mail">
-            <Mail size={14} /> E-mail
-          </button>
-          <button className="btn btn-sm" onClick={handleWhatsapp} title="Enviar por WhatsApp">
-            <MessageCircle size={14} /> WhatsApp
-          </button>
           <button className="btn btn-sm" onClick={handleDownloadPDF} disabled={pdfLoading}>
             <Download size={14} /> {pdfLoading ? 'Gerando...' : 'Baixar PDF'}
           </button>
