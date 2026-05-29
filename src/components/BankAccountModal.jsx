@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, Eye, EyeOff } from 'lucide-react'
+import { Check, Eye, EyeOff, Star } from 'lucide-react'
 import Modal from './Modal'
 import Field from './Field'
 import { useDB, insert, update } from '../data/store'
@@ -17,6 +17,7 @@ const BLANK = {
   initialBalance: '',
   color: '#00FF85',
   includeInTotal: true,
+  isPrimary: false,
   notes: '',
 }
 
@@ -52,6 +53,15 @@ export default function BankAccountModal({ open, accountId, onClose }) {
       ...form,
       initialBalance: Number(form.initialBalance) || 0,
       includeInTotal: !!form.includeInTotal,
+      isPrimary: !!form.isPrimary,
+    }
+    // Se marcou como principal, desmarca todas as outras (só pode existir 1)
+    if (payload.isPrimary) {
+      for (const a of db.bankAccounts) {
+        if (a.isPrimary && a.id !== accountId) {
+          update('bankAccounts', a.id, { isPrimary: false })
+        }
+      }
     }
     if (isEdit) {
       update('bankAccounts', account.id, payload)
@@ -150,6 +160,31 @@ export default function BankAccountModal({ open, accountId, onClose }) {
           ))}
         </div>
       </Field>
+
+      <div className="muted-box">
+        <label className="checkbox" style={{ alignItems: 'flex-start' }}>
+          <input
+            type="checkbox"
+            checked={!!form.isPrimary}
+            onChange={(e) => setForm((f) => ({ ...f, isPrimary: e.target.checked }))}
+          />
+          <div>
+            <div className="flex items-center gap-6">
+              <Star
+                size={14}
+                className={form.isPrimary ? 'text-neon' : 'text-2'}
+                style={form.isPrimary ? { fill: '#00FF85' } : undefined}
+              />
+              <strong>Conta principal</strong>
+            </div>
+            <div className="text-xs text-2 mt-8">
+              Esta conta será pré-selecionada em todos os lançamentos de
+              receita e despesa. Apenas uma conta pode ser principal por vez —
+              ao marcar esta, qualquer outra anterior é desmarcada.
+            </div>
+          </div>
+        </label>
+      </div>
 
       <div className="muted-box">
         <label className="checkbox" style={{ alignItems: 'flex-start' }}>

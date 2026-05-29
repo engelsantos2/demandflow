@@ -35,6 +35,7 @@ import {
   CalendarClock,
   SlidersHorizontal,
   Receipt,
+  Star,
 } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import StatCard from '../components/StatCard'
@@ -1299,6 +1300,24 @@ function BankAccountsTab({ accounts, entries, onNew, onEdit, onDelete, onToggle,
                   <div className="flex items-center gap-8">
                     <Landmark size={16} style={{ color: a.color || 'var(--neon)' }} />
                     <h3 style={{ fontSize: 16, fontWeight: 700 }}>{a.name}</h3>
+                    {a.isPrimary && (
+                      <span
+                        className="tag"
+                        style={{
+                          background: 'rgba(0,255,133,0.12)',
+                          color: '#00FF85',
+                          borderColor: 'rgba(0,255,133,0.3)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          padding: '2px 8px',
+                          fontSize: 10,
+                        }}
+                        title="Conta principal — pré-selecionada em novos lançamentos"
+                      >
+                        <Star size={10} style={{ fill: '#00FF85' }} /> Principal
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-2">
                     {typeLabel} • {a.bank || '—'} • Ag {a.agency || '—'} • CC {a.accountNumber || '—'}

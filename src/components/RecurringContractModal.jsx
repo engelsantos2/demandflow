@@ -50,13 +50,15 @@ export default function RecurringContractModal({ open, contractId, defaultType, 
     if (contract) {
       setForm({ ...BLANK, ...contract })
     } else {
-      const firstAccount = db.bankAccounts[0]?.id || ''
+      // Prefere a conta marcada como principal; cai pra primeira se não houver.
+      const primary = db.bankAccounts.find((a) => a.isPrimary)
+      const defaultAccount = primary?.id || db.bankAccounts[0]?.id || ''
       const type = defaultType || 'receita'
       const opts = categoriesForForm(db, type, '')
       setForm({
         ...BLANK,
         type,
-        accountId: firstAccount,
+        accountId: defaultAccount,
         category: opts[0] || '',
       })
     }
