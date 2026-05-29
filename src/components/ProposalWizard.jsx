@@ -4,7 +4,14 @@ import Modal from './Modal'
 import Field from './Field'
 import DateInput from './DateInput'
 import ClientSelect from './ClientSelect'
-import { useDB, insert, update, remove, nextProposalNumber } from '../data/store'
+import {
+  useDB,
+  insert,
+  insertAsync,
+  update,
+  remove,
+  nextProposalNumber,
+} from '../data/store'
 import { useUI } from './UIProvider'
 import { uid, currency, addDays } from '../lib/format'
 
@@ -107,7 +114,7 @@ export default function ProposalWizard({ open, proposalId, onClose }) {
   }
   const back = () => setStep((s) => Math.max(0, s - 1))
 
-  const handleSave = () => {
+  const handleSave = async () => {
     for (let s = 0; s <= 2; s++) {
       if (!validateStep(s)) {
         setStep(s)
@@ -137,23 +144,37 @@ export default function ProposalWizard({ open, proposalId, onClose }) {
       totalValue: total,
     }
 
-    if (isEdit) {
-      update('proposals', proposal.id, payload)
-      db.proposalItems
-        .filter((i) => i.proposalId === proposal.id)
-        .forEach((i) => remove('proposalItems', i.id))
-      cleanItems.forEach((i) => insert('proposalItems', { ...i, proposalId: proposal.id }))
-      toast('Proposta atualizada com sucesso')
-    } else {
-      const created = insert('proposals', {
-        ...payload,
-        number: nextProposalNumber(),
-        publicToken: uid('pf'),
-      })
-      cleanItems.forEach((i) => insert('proposalItems', { ...i, proposalId: created.id }))
-      toast('Proposta criada com sucesso')
+    try {
+      if (isEdit) {
+        update('proposals', proposal.id, payload)
+        // Remove os itens antigos
+        db.proposalItems
+          .filter((i) => i.proposalId === proposal.id)
+          .forEach((i) => remove('proposalItems', i.id))
+        // Insere os novos itens (proposta já existe no banco, FK ok)
+        for (const i of cleanItems) {
+          await insertAsync('proposalItems', { ...i, proposalId: proposal.id })
+        }
+        toast('Proposta atualizada com sucesso')
+      } else {
+        // IMPORTANTE: aguardar o insert da proposta TERMINAR no Supabase antes
+        // de inserir os itens. Caso contrário, os itens podem chegar primeiro
+        // e falhar por foreign key (proposal_id não existe ainda).
+        const created = await insertAsync('proposals', {
+          ...payload,
+          number: nextProposalNumber(),
+          publicToken: uid('pf'),
+        })
+        for (const i of cleanItems) {
+          await insertAsync('proposalItems', { ...i, proposalId: created.id })
+        }
+        toast('Proposta criada com sucesso')
+      }
+      onClose()
+    } catch (err) {
+      console.error('[ProposalWizard] erro ao salvar:', err)
+      toast('Erro ao salvar proposta: ' + (err.message || 'verifique o console'), 'error')
     }
-    onClose()
   }
 
   return (

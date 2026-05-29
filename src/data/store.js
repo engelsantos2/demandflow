@@ -243,6 +243,11 @@ function newUUID() {
   })
 }
 
+// Map de inserts pendentes por id local. Permite que insertAsync aguarde a
+// confirmação do Supabase antes de seguir — útil quando o próximo insert
+// depende do anterior (ex: FK de proposal_items.proposal_id).
+const _pendingInserts = new Map()
+
 export function insert(collection, item) {
   const userId = db._userId
   if (!userId) {
@@ -272,21 +277,48 @@ export function insert(collection, item) {
     [collection]: [record, ...(db[collection] || [])],
   })
 
-  // Dispara no Supabase
+  // Dispara no Supabase. Guarda a Promise pra quem quiser aguardar.
   const row = {
     ...objectToRow(record),
     user_id: userId,
     created_at: record.createdAt,
   }
-  supabase
+  const promise = supabase
     .from(tableOf(collection))
     .insert(row)
     .then(({ error }) => {
       if (error) {
         console.warn(`[store] insert falhou em ${collection}:`, error.message)
+        throw error
       }
+      return record
     })
+    .finally(() => {
+      _pendingInserts.delete(record.id)
+    })
+  _pendingInserts.set(record.id, promise)
 
+  return record
+}
+
+/**
+ * Versão async do insert. Retorna uma Promise que resolve quando o Supabase
+ * confirmar a gravação. Use quando o próximo passo depende deste insert (ex:
+ * FK em outra tabela).
+ */
+export async function insertAsync(collection, item) {
+  const record = insert(collection, item)
+  if (!record) return null
+  const pending = _pendingInserts.get(record.id)
+  if (pending) {
+    try {
+      await pending
+    } catch (err) {
+      // O record está no cache local mesmo se o servidor falhou. Repassamos
+      // o erro pra quem chamou tratar (ex: não tentar inserir filhos com FK).
+      throw err
+    }
+  }
   return record
 }
 
