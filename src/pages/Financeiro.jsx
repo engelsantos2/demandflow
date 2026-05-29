@@ -34,6 +34,7 @@ import {
   AlertTriangle,
   CalendarClock,
   SlidersHorizontal,
+  Receipt,
 } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import StatCard from '../components/StatCard'
@@ -42,6 +43,7 @@ import EmptyState from '../components/EmptyState'
 import FinancialModal from '../components/FinancialModal'
 import TransferModal from '../components/TransferModal'
 import BankAccountModal from '../components/BankAccountModal'
+import BankStatementModal from '../components/BankStatementModal'
 import RecurringContractModal from '../components/RecurringContractModal'
 import RecurrenceScopeModal from '../components/RecurrenceScopeModal'
 import CategoryModal from '../components/CategoryModal'
@@ -118,6 +120,8 @@ export default function Financeiro() {
   const [transferEditId, setTransferEditId] = useState(null)
   const [accountModalOpen, setAccountModalOpen] = useState(false)
   const [editingAccountId, setEditingAccountId] = useState(null)
+  const [statementOpen, setStatementOpen] = useState(false)
+  const [statementAccountId, setStatementAccountId] = useState(null)
   const [contractModalOpen, setContractModalOpen] = useState(false)
   const [editingContractId, setEditingContractId] = useState(null)
   const [contractDefaultType, setContractDefaultType] = useState('receita')
@@ -878,6 +882,10 @@ export default function Financeiro() {
           }}
           onDelete={handleDeleteAccount}
           onToggle={toggleAccountVisible}
+          onStatement={(id) => {
+            setStatementAccountId(id)
+            setStatementOpen(true)
+          }}
         />
       ) : tab === 'fixas' ? (
         <RecurringContractsTab
@@ -985,6 +993,11 @@ export default function Financeiro() {
         open={accountModalOpen}
         accountId={editingAccountId}
         onClose={() => setAccountModalOpen(false)}
+      />
+      <BankStatementModal
+        open={statementOpen}
+        accountId={statementAccountId}
+        onClose={() => setStatementOpen(false)}
       />
       <RecurringContractModal
         open={contractModalOpen}
@@ -1218,7 +1231,7 @@ function TransferList({ transfers, accountName, onEdit, onDelete, onNew, canTran
   )
 }
 
-function BankAccountsTab({ accounts, entries, onNew, onEdit, onDelete, onToggle }) {
+function BankAccountsTab({ accounts, entries, onNew, onEdit, onDelete, onToggle, onStatement }) {
   const included = accounts.filter((a) => a.includeInTotal)
   const totalVisible = included.reduce((s, a) => s + accountBalance(a, entries), 0)
   const totalAll = accounts.reduce((s, a) => s + accountBalance(a, entries), 0)
@@ -1337,6 +1350,16 @@ function BankAccountsTab({ accounts, entries, onNew, onEdit, onDelete, onToggle 
                   </button>
                 </div>
               </div>
+
+              <div className="divider" />
+
+              <button
+                className="btn btn-sm full"
+                onClick={() => onStatement(a.id)}
+                title="Ver todas as movimentações desta conta"
+              >
+                <Receipt size={14} /> Ver extrato
+              </button>
 
               {a.notes && (
                 <p className="text-xs text-2 mt-16">{a.notes}</p>

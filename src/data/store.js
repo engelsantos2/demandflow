@@ -92,15 +92,12 @@ export async function loadForUser(userId) {
   }
   // Já temos esse usuário carregado E não há loading em andamento? Pula.
   if (db._userId === userId && !db._loading && db.users?.length > 0 && !_inFlightPromise) {
-    console.log('[df store] loadForUser SKIP — já carregado para', userId)
     return
   }
   // Mesma chamada já está em andamento — aguarda
   if (_inFlightUserId === userId && _inFlightPromise) {
-    console.log('[df store] loadForUser AGUARDANDO chamada em andamento')
     return _inFlightPromise
   }
-  console.log('[df store] loadForUser INÍCIO', userId)
   _inFlightUserId = userId
   _inFlightPromise = _doLoadForUser(userId).finally(() => {
     _inFlightUserId = null
@@ -139,18 +136,10 @@ async function _doLoadForUser(userId) {
   }
 
   // Carrega profile (settings) em paralelo com as collections
-  console.log('[df store] disparando queries...')
-  const startedAt = Date.now()
   const [profileRes, ...collectionResults] = await Promise.all([
     safeQuery(supabase.from('profiles').select('*').eq('id', userId).maybeSingle()),
     ...COLLECTIONS.map(fetchCollection),
   ])
-  console.log(
-    '[df store] queries terminaram em',
-    Date.now() - startedAt,
-    'ms — profile error?',
-    profileRes.error?.message,
-  )
 
   const next = emptyDB()
   next._userId = userId
@@ -178,7 +167,7 @@ async function _doLoadForUser(userId) {
     // Criamos um profile mínimo INLINE a partir da sessão Supabase para
     // garantir que o app abre.
     console.warn(
-      '[df store] profile não encontrado no banco para',
+      '[store] profile não encontrado no banco para',
       userId,
       '— usando fallback da sessão',
     )
@@ -218,8 +207,7 @@ async function _doLoadForUser(userId) {
           permissions: next.users[0].permissions,
         })
         .then(({ error }) => {
-          if (error) console.warn('[df store] criação fallback de profile:', error.message)
-          else console.log('[df store] profile criado via fallback')
+          if (error) console.warn('[store] criação fallback de profile:', error.message)
         })
     }
   }
@@ -228,21 +216,12 @@ async function _doLoadForUser(userId) {
   COLLECTIONS.forEach((c, i) => {
     const res = collectionResults[i]
     if (res.error) {
-      console.warn(`[df store] erro ao carregar ${c}:`, res.error.message)
+      console.warn(`[store] erro ao carregar ${c}:`, res.error.message)
       next[c] = []
       return
     }
     next[c] = (res.data || []).map(rowToObject)
   })
-
-  console.log(
-    '[df store] cache populado: users=',
-    next.users.length,
-    'clients=',
-    next.clients.length,
-    'financialEntries=',
-    next.financialEntries.length,
-  )
   setDBState(next)
 }
 
