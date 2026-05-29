@@ -31,6 +31,8 @@ async function fetchPublicProposal(token) {
   if (!proposalRow) return null
   const proposal = rowToObject(proposalRow)
 
+  console.log('[proposta-pública] proposta id:', proposal.id, 'token:', proposal.publicToken)
+
   // Itens da proposta (também públicos via policy)
   const { data: itemsData, error: itemsErr } = await supabase
     .from('proposal_items')
@@ -38,7 +40,7 @@ async function fetchPublicProposal(token) {
     .eq('proposal_id', proposal.id)
   if (itemsErr) console.warn('[proposta-pública] erro items:', itemsErr.message)
   const items = (itemsData || []).map(rowToObject)
-  console.log('[proposta-pública] items carregados:', items.length)
+  console.log('[proposta-pública] items carregados:', items.length, items)
 
   // Cliente — pode falhar por RLS, retorna parcial
   let client = null
