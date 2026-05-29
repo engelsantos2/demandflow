@@ -12,7 +12,7 @@
 // A função compute recebe um objeto `m` com TODAS as métricas pré-calculadas
 // (ver Dashboard.jsx). Assim cada métrica é só uma "view" de m.
 
-import { compactCurrency } from './format'
+import { currency } from './format'
 
 export const METRIC_DEFS = [
   // ===== FINANCEIRO =====
@@ -22,7 +22,7 @@ export const METRIC_DEFS = [
     group: 'financeiro',
     icon: 'Scale',
     accent: '#00FF85',
-    compute: (m) => compactCurrency(m.saldoTotal),
+    compute: (m) => currency(m.saldoTotal),
     dynamicAccent: (m) => (m.saldoTotal >= 0 ? '#00FF85' : '#EF4444'),
   },
   {
@@ -31,7 +31,7 @@ export const METRIC_DEFS = [
     group: 'financeiro',
     icon: 'Hourglass',
     accent: '#38BDF8',
-    compute: (m) => compactCurrency(m.saldoPrevistoMes),
+    compute: (m) => currency(m.saldoPrevistoMes),
     dynamicAccent: (m) => (m.saldoPrevistoMes >= 0 ? '#38BDF8' : '#EF4444'),
   },
   {
@@ -40,7 +40,7 @@ export const METRIC_DEFS = [
     group: 'financeiro',
     icon: 'ArrowUpCircle',
     accent: '#00FF85',
-    compute: (m) => compactCurrency(m.receitasRecebidas),
+    compute: (m) => currency(m.receitasRecebidas),
   },
   {
     id: 'receitasPendentes',
@@ -48,7 +48,7 @@ export const METRIC_DEFS = [
     group: 'financeiro',
     icon: 'Clock',
     accent: '#FACC15',
-    compute: (m) => compactCurrency(m.receitasPendentes),
+    compute: (m) => currency(m.receitasPendentes),
   },
   {
     id: 'receitasPrevistas',
@@ -56,7 +56,7 @@ export const METRIC_DEFS = [
     group: 'financeiro',
     icon: 'Hourglass',
     accent: '#38BDF8',
-    compute: (m) => compactCurrency(m.receitasPrevistas),
+    compute: (m) => currency(m.receitasPrevistas),
   },
   {
     id: 'despesasPagas',
@@ -64,7 +64,7 @@ export const METRIC_DEFS = [
     group: 'financeiro',
     icon: 'ArrowDownCircle',
     accent: '#EF4444',
-    compute: (m) => compactCurrency(m.despesasPagas),
+    compute: (m) => currency(m.despesasPagas),
   },
   {
     id: 'despesasPendentes',
@@ -72,7 +72,7 @@ export const METRIC_DEFS = [
     group: 'financeiro',
     icon: 'Clock',
     accent: '#FACC15',
-    compute: (m) => compactCurrency(m.despesasPendentes),
+    compute: (m) => currency(m.despesasPendentes),
   },
   {
     id: 'despesasPrevistas',
@@ -80,7 +80,7 @@ export const METRIC_DEFS = [
     group: 'financeiro',
     icon: 'Hourglass',
     accent: '#A78BFA',
-    compute: (m) => compactCurrency(m.despesasPrevistas),
+    compute: (m) => currency(m.despesasPrevistas),
   },
   {
     id: 'lucroRealizado',
@@ -88,7 +88,7 @@ export const METRIC_DEFS = [
     group: 'financeiro',
     icon: 'TrendingUp',
     accent: '#00FF85',
-    compute: (m) => compactCurrency(m.lucroRealizado),
+    compute: (m) => currency(m.lucroRealizado),
     dynamicAccent: (m) => (m.lucroRealizado >= 0 ? '#00FF85' : '#EF4444'),
   },
   {
@@ -97,7 +97,7 @@ export const METRIC_DEFS = [
     group: 'financeiro',
     icon: 'TrendingUp',
     accent: '#00FF85',
-    compute: (m) => compactCurrency(m.lucroEstimado),
+    compute: (m) => currency(m.lucroEstimado),
     dynamicAccent: (m) => (m.lucroEstimado >= 0 ? '#00FF85' : '#EF4444'),
   },
   {
@@ -106,7 +106,7 @@ export const METRIC_DEFS = [
     group: 'financeiro',
     icon: 'AlertTriangle',
     accent: '#EF4444',
-    compute: (m) => `${m.contasVencidasCount} • ${compactCurrency(m.contasVencidasValor)}`,
+    compute: (m) => `${m.contasVencidasCount} • ${currency(m.contasVencidasValor)}`,
   },
   {
     id: 'contasAVencer',
@@ -114,7 +114,7 @@ export const METRIC_DEFS = [
     group: 'financeiro',
     icon: 'CalendarClock',
     accent: '#FACC15',
-    compute: (m) => `${m.contasAVencerCount} • ${compactCurrency(m.contasAVencerValor)}`,
+    compute: (m) => `${m.contasAVencerCount} • ${currency(m.contasAVencerValor)}`,
   },
 
   // ===== DEMANDAS / PROPOSTAS =====

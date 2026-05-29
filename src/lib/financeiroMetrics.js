@@ -7,7 +7,7 @@
 //
 // O id é persistido em settings.financeiroMetrics.
 
-import { compactCurrency } from './format'
+import { currency } from './format'
 
 export const FIN_METRIC_DEFS = [
   // ===== Saldos =====
@@ -17,7 +17,7 @@ export const FIN_METRIC_DEFS = [
     group: 'saldos',
     icon: 'Scale',
     accent: '#00FF85',
-    compute: (m) => compactCurrency(m.saldoTotal),
+    compute: (m) => currency(m.saldoTotal),
     dynamicAccent: (m) => (m.saldoTotal >= 0 ? '#00FF85' : '#EF4444'),
   },
   {
@@ -26,7 +26,7 @@ export const FIN_METRIC_DEFS = [
     group: 'saldos',
     icon: 'TrendingUp',
     accent: '#00FF85',
-    compute: (m) => compactCurrency(m.saldoPrevistoMes),
+    compute: (m) => currency(m.saldoPrevistoMes),
     dynamicAccent: (m) => (m.saldoPrevistoMes >= 0 ? '#00FF85' : '#EF4444'),
   },
 
@@ -37,7 +37,7 @@ export const FIN_METRIC_DEFS = [
     group: 'receitas',
     icon: 'ArrowUpCircle',
     accent: '#00FF85',
-    compute: (m) => compactCurrency(m.receitaTotalMes),
+    compute: (m) => currency(m.receitaTotalMes),
   },
   {
     id: 'receitasRecebidas',
@@ -45,7 +45,7 @@ export const FIN_METRIC_DEFS = [
     group: 'receitas',
     icon: 'ArrowUpCircle',
     accent: '#00FF85',
-    compute: (m) => compactCurrency(m.receitasRecebidas),
+    compute: (m) => currency(m.receitasRecebidas),
   },
   {
     id: 'receitasPendentes',
@@ -53,7 +53,7 @@ export const FIN_METRIC_DEFS = [
     group: 'receitas',
     icon: 'Clock',
     accent: '#FACC15',
-    compute: (m) => compactCurrency(m.receitasPendentes),
+    compute: (m) => currency(m.receitasPendentes),
   },
   {
     id: 'totalAReceber',
@@ -61,7 +61,7 @@ export const FIN_METRIC_DEFS = [
     group: 'receitas',
     icon: 'Wallet',
     accent: '#FACC15',
-    compute: (m) => compactCurrency(m.totalAReceber),
+    compute: (m) => currency(m.totalAReceber),
   },
 
   // ===== Despesas =====
@@ -71,7 +71,7 @@ export const FIN_METRIC_DEFS = [
     group: 'despesas',
     icon: 'ArrowDownCircle',
     accent: '#EF4444',
-    compute: (m) => compactCurrency(m.despesasMes),
+    compute: (m) => currency(m.despesasMes),
   },
   {
     id: 'despesasPagas',
@@ -79,7 +79,7 @@ export const FIN_METRIC_DEFS = [
     group: 'despesas',
     icon: 'ArrowDownCircle',
     accent: '#EF4444',
-    compute: (m) => compactCurrency(m.despesasPagas),
+    compute: (m) => currency(m.despesasPagas),
   },
   {
     id: 'despesasPendentes',
@@ -87,7 +87,7 @@ export const FIN_METRIC_DEFS = [
     group: 'despesas',
     icon: 'Clock',
     accent: '#FACC15',
-    compute: (m) => compactCurrency(m.despesasPendentes),
+    compute: (m) => currency(m.despesasPendentes),
   },
   {
     id: 'totalAPagar',
@@ -95,7 +95,7 @@ export const FIN_METRIC_DEFS = [
     group: 'despesas',
     icon: 'Wallet',
     accent: '#FB923C',
-    compute: (m) => compactCurrency(m.totalAPagar),
+    compute: (m) => currency(m.totalAPagar),
   },
 
   // ===== Alertas =====
@@ -105,7 +105,7 @@ export const FIN_METRIC_DEFS = [
     group: 'alertas',
     icon: 'AlertTriangle',
     accent: '#EF4444',
-    compute: (m) => `${m.contasVencidasCount} • ${compactCurrency(m.contasVencidasValor)}`,
+    compute: (m) => `${m.contasVencidasCount} • ${currency(m.contasVencidasValor)}`,
   },
   {
     id: 'contasAVencer',
@@ -113,7 +113,7 @@ export const FIN_METRIC_DEFS = [
     group: 'alertas',
     icon: 'CalendarClock',
     accent: '#FACC15',
-    compute: (m) => `${m.contasAVencerCount} • ${compactCurrency(m.contasAVencerValor)}`,
+    compute: (m) => `${m.contasAVencerCount} • ${currency(m.contasAVencerValor)}`,
   },
 ]
 
