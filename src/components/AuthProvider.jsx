@@ -1,11 +1,12 @@
 // =============================================================================
-// AuthProvider — autenticação real via Supabase Auth
+// AuthProvider — sessão Supabase + carregamento NÃO-BLOQUEANTE de dados
 // =============================================================================
-// • signIn(email, password)  → Supabase signInWithPassword
-// • signUp({...})            → Supabase signUp (com metadata)
-// • signOut()                → encerra sessão + limpa cache
-//
-// Quando a sessão muda, dispara loadForUser() para popular o cache global.
+// Estratégia:
+//   • `user` é derivado DIRETAMENTE da session (não depende de profile carregar).
+//     Assim o app SEMPRE abre quando há sessão válida.
+//   • `loadForUser()` roda em BACKGROUND, populando o cache aos poucos.
+//     Se demorar/falhar, as páginas só mostram dados vazios — não travam.
+//   • `loading` reflete só a verificação inicial de sessão (~1s).
 // =============================================================================
 
 import {
@@ -17,9 +18,20 @@ import {
   useState,
 } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { useDB, loadForUser, clearForLogout } from '../data/store'
+import { loadForUser, clearForLogout } from '../data/store'
 
 const AuthContext = createContext(null)
+
+const DEFAULT_PERMISSIONS = [
+  'dashboard',
+  'demandas',
+  'clientes',
+  'financeiro',
+  'propostas',
+  'servicos',
+  'relatorios',
+  'configuracoes',
+]
 
 export function useAuth() {
   const ctx = useContext(AuthContext)
@@ -28,100 +40,74 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }) {
-  const db = useDB()
   const [session, setSession] = useState(null)
-  // 'loading' enquanto verifica sessão inicial / carrega dados do usuário.
   const [loading, setLoading] = useState(true)
 
-  // Carrega sessão inicial e escuta mudanças (login/logout em outras abas).
-  // Importante: SEMPRE liberar `loading` no finally, senão um erro silencioso
-  // em loadForUser deixaria o app travado num spinner eterno.
-  // Também aplicamos um timeout de segurança — se loadForUser não voltar em
-  // 15s, libera assim mesmo. Pior caso o cache fica vazio, mas o app abre.
   useEffect(() => {
     let mounted = true
-    // Lembra qual userId já foi carregado nesta sessão da página para evitar
-    // recarregar quando SIGNED_IN é re-emitido (acontece em refresh de token,
-    // mudança de aba, etc.).
     let loadedUserId = null
-    console.log('[df] AuthProvider mount')
 
-    const withTimeout = (p) =>
-      Promise.race([
-        p,
-        new Promise((_, rej) =>
-          setTimeout(() => rej(new Error('[df] loadForUser timeout (30s)')), 30000),
-        ),
-      ])
-
-    const ensureLoaded = async (sess, source) => {
-      const uid = sess?.user?.id
-      if (!uid) return
-      if (uid === loadedUserId) {
-        console.log(`[df] ${source}: usuário já carregado, pulando`)
-        return
-      }
-      console.log(`[df] ${source}: chamando loadForUser para`, sess.user.email)
-      setLoading(true)
-      try {
-        await withTimeout(loadForUser(uid))
-        loadedUserId = uid
-        console.log(`[df] loadForUser (${source}) terminou`)
-      } catch (err) {
-        console.error(`[df] loadForUser falhou (${source}):`, err)
-      } finally {
-        if (mounted) setLoading(false)
-      }
+    // Função interna: dispara loadForUser em BACKGROUND.
+    // Não bloqueia setLoading. Se falhar, log e segue a vida.
+    const kickoffLoad = (uid) => {
+      if (!uid || uid === loadedUserId) return
+      loadedUserId = uid
+      loadForUser(uid).catch((err) =>
+        console.warn('[df] loadForUser falhou (background):', err),
+      )
     }
 
+    // 1) Verifica sessão inicial (rápido — lê localStorage)
     supabase.auth
       .getSession()
-      .then(async ({ data }) => {
-        console.log('[df] getSession resolveu, session?', !!data.session)
+      .then(({ data }) => {
         if (!mounted) return
-        setSession(data.session || null)
-        if (data.session?.user?.id) {
-          await ensureLoaded(data.session, 'getSession')
-        } else if (mounted) {
-          setLoading(false)
-        }
+        const sess = data.session || null
+        setSession(sess)
+        setLoading(false) // ← UI já pode renderizar
+        if (sess?.user?.id) kickoffLoad(sess.user.id)
       })
       .catch((err) => {
-        console.error('[df] getSession falhou:', err)
+        console.warn('[df] getSession falhou:', err)
         if (mounted) setLoading(false)
       })
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, sess) => {
-      console.log('[df] onAuthStateChange:', event, 'session?', !!sess)
-      // Ignora refresh de token completamente — não muda a sessão do app.
+    // 2) Reage a mudanças de sessão (login, logout)
+    const { data: sub } = supabase.auth.onAuthStateChange((event, sess) => {
+      // Token refresh / initial session — só atualiza session, não recarrega.
       if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
         if (sess) setSession(sess)
         return
       }
       setSession(sess || null)
-      if (event === 'SIGNED_IN') {
-        await ensureLoaded(sess, 'SIGNED_IN')
+      if (event === 'SIGNED_IN' && sess?.user?.id) {
+        kickoffLoad(sess.user.id)
       } else if (event === 'SIGNED_OUT') {
-        console.log('[df] SIGNED_OUT: limpando cache')
         loadedUserId = null
         clearForLogout()
       }
     })
 
     return () => {
-      console.log('[df] AuthProvider unmount')
       mounted = false
       sub.subscription.unsubscribe()
     }
   }, [])
 
-  // Usuário "do app" = primeiro registro da collection users (profile do logado).
-  // Mantemos esse formato para os componentes que já consomem `user.permissions`,
-  // `user.name`, etc.
+  // Usuário vem DIRETO da session (sempre disponível quando logado).
+  // Permissões completas por default — multi-tenant simples.
   const user = useMemo(() => {
-    if (!session) return null
-    return db.users?.[0] || null
-  }, [session, db.users])
+    if (!session?.user) return null
+    const u = session.user
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.user_metadata?.name || (u.email || '').split('@')[0] || 'Usuário',
+      position: u.user_metadata?.position || 'Membro',
+      isAdmin: true,
+      permissions: DEFAULT_PERMISSIONS,
+    }
+  }, [session])
 
   const signIn = useCallback(async (email, password) => {
     const cleanEmail = String(email || '').trim().toLowerCase()
@@ -148,20 +134,10 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
       password: cleanPassword,
-      options: {
-        data: { name: cleanName, position: cleanPosition },
-      },
+      options: { data: { name: cleanName, position: cleanPosition } },
     })
     if (error) return { ok: false, error: traduzErroAuth(error.message) }
-    // Se o projeto Supabase está com "Confirm email" ligado, o usuário precisa
-    // confirmar antes de logar. Avisamos.
-    if (!data.session) {
-      return {
-        ok: true,
-        user: data.user,
-        needsConfirm: true,
-      }
-    }
+    if (!data.session) return { ok: true, user: data.user, needsConfirm: true }
     return { ok: true, user: data.user }
   }, [])
 
@@ -178,7 +154,6 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-// Traduz mensagens comuns de erro do Supabase Auth para português.
 function traduzErroAuth(msg) {
   const m = (msg || '').toLowerCase()
   if (m.includes('invalid login credentials')) return 'E-mail ou senha incorretos.'
