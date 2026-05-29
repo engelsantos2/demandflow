@@ -93,18 +93,29 @@ export async function loadForUser(userId) {
       (err) => ({ data: null, error: err }),
     )
 
+  // Buscar collection com fallback: se a ordenação por created_at falhar
+  // (ex.: coluna ausente em alguma instalação antiga), tenta de novo sem order.
+  const fetchCollection = async (c) => {
+    const table = tableOf(c)
+    const ordered = await safeQuery(
+      supabase
+        .from(table)
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }),
+    )
+    if (!ordered.error) return ordered
+    // Fallback sem ordenação — garante que o app não trava por causa de
+    // uma coluna faltando.
+    return safeQuery(
+      supabase.from(table).select('*').eq('user_id', userId),
+    )
+  }
+
   // Carrega profile (settings) em paralelo com as collections
   const [profileRes, ...collectionResults] = await Promise.all([
     safeQuery(supabase.from('profiles').select('*').eq('id', userId).maybeSingle()),
-    ...COLLECTIONS.map((c) =>
-      safeQuery(
-        supabase
-          .from(tableOf(c))
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false }),
-      ),
-    ),
+    ...COLLECTIONS.map(fetchCollection),
   ])
 
   const next = emptyDB()

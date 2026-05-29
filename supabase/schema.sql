@@ -149,7 +149,8 @@ create table if not exists public.proposal_items (
   description text,
   quantity    numeric(12, 2) default 1,
   unit_price  numeric(12, 2) default 0,
-  total_price numeric(12, 2) default 0
+  total_price numeric(12, 2) default 0,
+  created_at  timestamptz default now()
 );
 create index if not exists proposal_items_user_idx on public.proposal_items(user_id);
 create index if not exists proposal_items_proposal_idx on public.proposal_items(proposal_id);
