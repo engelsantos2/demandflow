@@ -678,7 +678,7 @@ export default function Financeiro() {
 
       {tab === 'visao' ? (
         <>
-          {/* 3 boxes: Balanço | Economia atual | Economia anterior */}
+          {/* 3 boxes: Balanço | Economia atual | Despesas por categoria */}
           <div className="grid cols-3">
             <BalanceCard
               title="Balanço mensal"
@@ -694,50 +694,73 @@ export default function Financeiro() {
               receitas={m.receitaTotalMes}
               despesas={m.despesasMes}
             />
-            <EconomyGauge
-              title="Economia — mês anterior"
-              monthKey={m.prevPeriod}
-              showMonth
-              receitas={m.prevReceitas}
-              despesas={m.prevDespesas}
-              subtle
-            />
-          </div>
-
-          {/* Categorias de despesas (full width) */}
-          <div className="panel mt-24">
-            <div className="panel-head">
-              <div>
-                <div className="panel-title">Despesas por categoria</div>
-                <div className="panel-sub">Total acumulado</div>
-              </div>
-            </div>
-            {byCategory.length === 0 ? (
-              <p className="text-sm text-2">Nenhuma despesa registrada.</p>
-            ) : (
-              <div className="flex items-center gap-16 wrap">
-                <ResponsiveContainer width={180} height={180}>
-                  <PieChart>
-                    <Pie data={byCategory} dataKey="value" innerRadius={45} outerRadius={75} paddingAngle={3} stroke="none">
-                      {byCategory.map((d, i) => (
-                        <Cell key={i} fill={d.fill} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<ChartTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  {byCategory.map((d) => (
-                    <div key={d.name} className="flex items-center justify-between text-sm" style={{ padding: '3px 0' }}>
-                      <span className="flex items-center gap-8">
-                        <span className="dot-sm" style={{ background: d.fill }} /> {d.name}
-                      </span>
-                      <span className="font-bold">{currency(d.value)}</span>
-                    </div>
-                  ))}
+            <div className="panel">
+              <div className="panel-head">
+                <div>
+                  <div className="panel-title">Despesas por categoria</div>
+                  <div className="panel-sub">Total acumulado</div>
                 </div>
               </div>
-            )}
+              {byCategory.length === 0 ? (
+                <p className="text-sm text-2 mt-12">Nenhuma despesa registrada.</p>
+              ) : (
+                <div className="flex items-center gap-12 wrap mt-12">
+                  <ResponsiveContainer width={120} height={120}>
+                    <PieChart>
+                      <Pie
+                        data={byCategory}
+                        dataKey="value"
+                        innerRadius={32}
+                        outerRadius={54}
+                        paddingAngle={3}
+                        stroke="none"
+                      >
+                        {byCategory.map((d, i) => (
+                          <Cell key={i} fill={d.fill} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<ChartTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    {byCategory.slice(0, 5).map((d) => (
+                      <div
+                        key={d.name}
+                        className="flex items-center justify-between text-xs"
+                        style={{ padding: '3px 0' }}
+                      >
+                        <span
+                          className="flex items-center gap-6"
+                          style={{ minWidth: 0, overflow: 'hidden' }}
+                        >
+                          <span
+                            className="dot-sm"
+                            style={{ background: d.fill, flexShrink: 0 }}
+                          />
+                          <span
+                            style={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {d.name}
+                          </span>
+                        </span>
+                        <span className="font-bold" style={{ flexShrink: 0 }}>
+                          {currency(d.value)}
+                        </span>
+                      </div>
+                    ))}
+                    {byCategory.length > 5 && (
+                      <div className="text-xs text-2 mt-4">
+                        + {byCategory.length - 5} outra(s)
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="panel mt-24">
