@@ -103,7 +103,7 @@ export default function Propostas() {
   }
 
   const copyLink = (proposal) => {
-    const url = `${window.location.origin}${window.location.pathname}#/proposta/${proposal.publicToken}`
+    const url = `${window.location.origin}/proposta/${proposal.publicToken}`
     navigator.clipboard?.writeText(url).then(
       () => toast('Link da proposta copiado'),
       () => toast('Não foi possível copiar o link', 'error'),

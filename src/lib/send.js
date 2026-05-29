@@ -2,7 +2,8 @@ import { currency, formatDate } from './format'
 import { proposalCode } from './proposalActions'
 
 export function publicProposalURL(proposal) {
-  return `${window.location.origin}${window.location.pathname}#/proposta/${proposal.publicToken}`
+  // BrowserRouter — rotas limpas sem '#'
+  return `${window.location.origin}/proposta/${proposal.publicToken}`
 }
 
 export function buildProposalText(proposal, settings) {
