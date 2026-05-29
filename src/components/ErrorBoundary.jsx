@@ -15,6 +15,24 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error('[ErrorBoundary]', error, info)
+    // Detecta erro clássico de "chunk antigo após deploy" — o navegador tenta
+    // baixar um JS com hash que não existe mais. Faz reload automático uma
+    // única vez (com guarda para evitar loop infinito).
+    const msg = (error?.message || '').toLowerCase()
+    const isChunkError =
+      msg.includes('failed to fetch dynamically imported module') ||
+      msg.includes('loading chunk') ||
+      msg.includes('importing a module script failed')
+    if (isChunkError) {
+      const KEY = 'demandflow-chunk-reload'
+      const last = Number(sessionStorage.getItem(KEY) || 0)
+      const now = Date.now()
+      if (now - last > 10000) {
+        sessionStorage.setItem(KEY, String(now))
+        // Pequeno delay pra log aparecer
+        setTimeout(() => window.location.reload(), 200)
+      }
+    }
   }
 
   reset = () => {
