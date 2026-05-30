@@ -1706,21 +1706,20 @@ textarea {
     align-items: flex-start;
   }
   .modal {
-    max-width: 100%;
-    width: 100%;
-    /* impede que conteúdo dentro do modal estoure horizontalmente */
-    overflow: hidden;
+    max-width: 100% !important;
+    width: 100% !important;
+    /* NÃO usar overflow: hidden aqui — cortava labels.
+       Em vez disso, controla overflow no body. */
   }
   .modal.lg,
   .modal.xl {
-    max-width: 100%;
+    max-width: 100% !important;
   }
   .modal-header {
-    padding: 14px 16px;
+    padding: 14px 16px !important;
   }
   .modal-title {
     font-size: 18px;
-    /* dá espaço pro X de fechar não colidir */
     padding-right: 8px;
     min-width: 0;
     overflow: hidden;
@@ -1728,11 +1727,29 @@ textarea {
     white-space: nowrap;
   }
   .modal-body {
-    padding: 16px;
+    /* Padding lateral fixo + box-sizing garante que o conteúdo nunca
+       fica colado nas bordas. */
+    padding: 16px !important;
     max-height: calc(100vh - 180px);
+    /* CRÍTICO: impede scroll horizontal dentro do modal e força
+       conteúdo a respeitar a largura disponível. */
+    overflow-x: hidden;
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+  /* Filhos diretos do body do modal NUNCA podem estourar */
+  .modal-body > * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  /* Conteúdo que possa ter min-width nativo (segmented, toolbars) */
+  .modal-body .segmented,
+  .modal-body .toolbar {
+    max-width: 100%;
+    flex-wrap: wrap;
   }
   .modal-footer {
-    padding: 12px 16px;
+    padding: 12px 16px !important;
     flex-wrap: wrap;
     gap: 8px;
   }
