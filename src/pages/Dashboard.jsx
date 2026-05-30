@@ -3,8 +3,6 @@ import { Link } from 'react-router-dom'
 import {
   BarChart,
   Bar,
-  AreaChart,
-  Area,
   PieChart,
   Pie,
   Cell,
@@ -35,6 +33,8 @@ import StatCard from '../components/StatCard'
 import Badge from '../components/Badge'
 import MonthStepper from '../components/MonthStepper'
 import CustomizeMetricsModal from '../components/CustomizeMetricsModal'
+import BalanceCard from '../components/BalanceCard'
+import EconomyGauge from '../components/EconomyGauge'
 import { useDB, updateSettings } from '../data/store'
 import { totalRealBalance } from '../lib/bankAccounts'
 import {
@@ -264,18 +264,27 @@ export default function Dashboard() {
     }
   }, [db, period])
 
-  const monthlyData = useMemo(() => {
-    const months = lastMonths(6)
-    return months.map((key) => {
-      const receita = db.financialEntries
-        .filter((e) => e.type === 'receita' && monthKey(e.paymentDate || e.dueDate) === key)
-        .reduce((s, e) => s + e.value, 0)
-      const despesa = db.financialEntries
-        .filter((e) => e.type === 'despesa' && monthKey(e.paymentDate || e.dueDate) === key)
-        .reduce((s, e) => s + e.value, 0)
-      return { mes: monthLabel(key), Receita: receita, Despesa: despesa }
-    })
-  }, [db])
+  // Despesas agrupadas por categoria (independente de mês — total acumulado)
+  const CATEGORY_COLORS = [
+    '#00FF85', '#38BDF8', '#FACC15', '#A78BFA', '#FB923C',
+    '#EF4444', '#22C55E', '#F472B6',
+  ]
+  const byCategory = useMemo(() => {
+    const map = {}
+    db.financialEntries
+      .filter((e) => e.type === 'despesa' && e.status !== 'cancelado')
+      .forEach((e) => {
+        const k = e.category || 'Outros'
+        map[k] = (map[k] || 0) + (Number(e.value) || 0)
+      })
+    return Object.entries(map)
+      .map(([name, value], i) => ({
+        name,
+        value,
+        fill: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+      }))
+      .sort((a, b) => b.value - a.value)
+  }, [db.financialEntries])
 
   const stageData = useMemo(
     () =>
@@ -444,96 +453,137 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid cols-3 mt-24" style={{ gridTemplateColumns: '2fr 1fr' }}>
+      {/* 3 boxes financeiros: Balanço | Economia | Despesas por categoria */}
+      <div className="grid cols-3 mt-24">
+        <BalanceCard
+          title="Balanço mensal"
+          monthKey={period === 'all' ? null : period}
+          showMonth
+          receitas={m.receitasPrevistas}
+          despesas={m.despesasPrevistas}
+        />
+        <EconomyGauge
+          title="Economia mensal"
+          monthKey={period === 'all' ? null : period}
+          showMonth
+          receitas={m.receitasPrevistas}
+          despesas={m.despesasPrevistas}
+        />
         <div className="panel">
           <div className="panel-head">
             <div>
-              <div className="panel-title">Receitas x Despesas</div>
-              <div className="panel-sub">Últimos 6 meses</div>
+              <div className="panel-title">Despesas por categoria</div>
+              <div className="panel-sub">Total acumulado</div>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={252}>
-            <AreaChart data={monthlyData} margin={{ left: -18, right: 6, top: 6 }}>
-              <defs>
-                <linearGradient id="gReceita" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#00FF85" stopOpacity={0.45} />
-                  <stop offset="100%" stopColor="#00FF85" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gDespesa" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#EF4444" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#EF4444" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="#18211c" vertical={false} />
-              <XAxis dataKey="mes" stroke="#5f6b64" fontSize={11} tickLine={false} axisLine={false} />
-              <YAxis
-                stroke="#5f6b64"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v) => (v >= 1000 ? `${v / 1000}k` : v)}
-              />
-              <Tooltip content={<ChartTooltip money />} cursor={{ stroke: '#1f2a24' }} />
-              <Area
-                type="monotone"
-                dataKey="Receita"
-                stroke="#00FF85"
-                strokeWidth={2}
-                fill="url(#gReceita)"
-              />
-              <Area
-                type="monotone"
-                dataKey="Despesa"
-                stroke="#EF4444"
-                strokeWidth={2}
-                fill="url(#gDespesa)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="panel">
-          <div className="panel-head">
-            <div>
-              <div className="panel-title">Propostas por status</div>
-              <div className="panel-sub">{db.proposals.length} no total</div>
-            </div>
-          </div>
-          {proposalData.length === 0 ? (
-            <p className="text-2 text-sm">Nenhuma proposta cadastrada.</p>
+          {byCategory.length === 0 ? (
+            <p className="text-sm text-2 mt-12">Nenhuma despesa registrada.</p>
           ) : (
-            <>
-              <ResponsiveContainer width="100%" height={170}>
+            <div className="flex items-center gap-12 wrap mt-12">
+              <ResponsiveContainer width={120} height={120}>
                 <PieChart>
                   <Pie
-                    data={proposalData}
+                    data={byCategory}
                     dataKey="value"
-                    innerRadius={42}
-                    outerRadius={66}
+                    innerRadius={32}
+                    outerRadius={54}
                     paddingAngle={3}
                     stroke="none"
                   >
-                    {proposalData.map((d, i) => (
+                    {byCategory.map((d, i) => (
                       <Cell key={i} fill={d.fill} />
                     ))}
                   </Pie>
-                  <Tooltip content={<ChartTooltip />} />
+                  <Tooltip content={<ChartTooltip money />} />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="mt-8">
-                {proposalData.map((d) => (
-                  <div key={d.name} className="flex items-center justify-between text-sm" style={{ padding: '3px 0' }}>
-                    <span className="flex items-center gap-8">
-                      <span className="dot-sm" style={{ background: d.fill }} />
-                      {d.name}
+              <div style={{ flex: 1, minWidth: 120 }}>
+                {byCategory.slice(0, 5).map((d) => (
+                  <div
+                    key={d.name}
+                    className="flex items-center justify-between text-xs"
+                    style={{ padding: '3px 0' }}
+                  >
+                    <span
+                      className="flex items-center gap-6"
+                      style={{ minWidth: 0, overflow: 'hidden' }}
+                    >
+                      <span
+                        className="dot-sm"
+                        style={{ background: d.fill, flexShrink: 0 }}
+                      />
+                      <span
+                        style={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {d.name}
+                      </span>
                     </span>
-                    <span className="font-bold">{d.value}</span>
+                    <span className="font-bold" style={{ flexShrink: 0 }}>
+                      {currency(d.value)}
+                    </span>
                   </div>
                 ))}
+                {byCategory.length > 5 && (
+                  <div className="text-xs text-2 mt-4">
+                    + {byCategory.length - 5} outra(s)
+                  </div>
+                )}
               </div>
-            </>
+            </div>
           )}
         </div>
+      </div>
+
+      {/* Propostas por status (linha separada) */}
+      <div className="panel mt-24">
+        <div className="panel-head">
+          <div>
+            <div className="panel-title">Propostas por status</div>
+            <div className="panel-sub">{db.proposals.length} no total</div>
+          </div>
+        </div>
+        {proposalData.length === 0 ? (
+          <p className="text-2 text-sm">Nenhuma proposta cadastrada.</p>
+        ) : (
+          <div className="flex items-center gap-16 wrap mt-12">
+            <ResponsiveContainer width={170} height={170}>
+              <PieChart>
+                <Pie
+                  data={proposalData}
+                  dataKey="value"
+                  innerRadius={42}
+                  outerRadius={66}
+                  paddingAngle={3}
+                  stroke="none"
+                >
+                  {proposalData.map((d, i) => (
+                    <Cell key={i} fill={d.fill} />
+                  ))}
+                </Pie>
+                <Tooltip content={<ChartTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              {proposalData.map((d) => (
+                <div
+                  key={d.name}
+                  className="flex items-center justify-between text-sm"
+                  style={{ padding: '3px 0' }}
+                >
+                  <span className="flex items-center gap-8">
+                    <span className="dot-sm" style={{ background: d.fill }} />
+                    {d.name}
+                  </span>
+                  <span className="font-bold">{d.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="panel mt-24">
