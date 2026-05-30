@@ -1072,6 +1072,26 @@ textarea {
 .form-row.cols-2 { grid-template-columns: 1fr 1fr; }
 .form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
 
+/* CRÍTICO: itens de grid tem min-width: auto por default, o que faz
+   inputs (que têm tamanho mínimo nativo) estourarem a célula.
+   Forçando min-width: 0 deixamos o grid 1fr respeitar a célula. */
+.form-row > * {
+  min-width: 0;
+}
+.field {
+  min-width: 0;
+  max-width: 100%;
+}
+.input,
+.select,
+.textarea {
+  /* Garante que padding + border não estouram o width: 100% */
+  box-sizing: border-box;
+  /* Em alguns navegadores input type=number tem tamanho mínimo
+     calculado pelo número de chars do placeholder. Forçamos zero. */
+  min-width: 0;
+}
+
 .checkbox {
   display: flex;
   align-items: center;
@@ -1768,6 +1788,22 @@ textarea {
   .textarea {
     max-width: 100%;
     min-width: 0;
+  }
+
+  /* Inputs nativos type=number/date/text dentro de containers flexíveis
+     também precisam respeitar o pai. */
+  input,
+  select,
+  textarea {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Date input wrapper sempre 100% */
+  .date-field {
+    width: 100% !important;
+    max-width: 100%;
   }
 }
 
