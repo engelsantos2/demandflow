@@ -239,13 +239,17 @@ async function _doLoadForUser(userId) {
       return
     }
     const rows = (res.data || []).map(rowToObject)
-    next[c] =
-      c === 'financialChallenges' &&
-      rows.length === 0 &&
-      Array.isArray(next.settings.financialChallenges) &&
-      next.settings.financialChallenges.length
-        ? next.settings.financialChallenges
-        : rows
+    if (c === 'financialChallenges' && Array.isArray(next.settings.financialChallenges)) {
+      const byId = new Map(rows.map((item) => [item.id, item]))
+      next.settings.financialChallenges.forEach((item) => {
+        if (item?.id) byId.set(item.id, { ...(byId.get(item.id) || {}), ...item })
+      })
+      next[c] = Array.from(byId.values()).sort((a, b) =>
+        String(b.createdAt || '').localeCompare(String(a.createdAt || '')),
+      )
+      return
+    }
+    next[c] = rows
   })
   setDBState(next)
 }

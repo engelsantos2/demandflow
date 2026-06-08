@@ -8,6 +8,7 @@ create table if not exists public.financial_challenges (
   user_id         uuid not null references auth.users(id) on delete cascade,
   title           text not null,
   goal_amount     numeric(12, 2) default 0,
+  minimum_deposit_amount numeric(12, 2) default 0,
   deposit_count   int default 0,
   generation_type text default 'crescente',
   frequency       text default 'livre',
@@ -21,6 +22,9 @@ create table if not exists public.financial_challenges (
 
 create index if not exists financial_challenges_user_idx
   on public.financial_challenges(user_id);
+
+alter table public.financial_challenges
+  add column if not exists minimum_deposit_amount numeric(12, 2) default 0;
 
 alter table public.financial_challenges enable row level security;
 

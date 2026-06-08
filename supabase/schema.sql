@@ -190,6 +190,7 @@ create table if not exists public.financial_challenges (
   user_id         uuid not null references auth.users(id) on delete cascade,
   title           text not null,
   goal_amount     numeric(12, 2) default 0,
+  minimum_deposit_amount numeric(12, 2) default 0,
   deposit_count   int default 0,
   generation_type text default 'crescente',
   frequency       text default 'livre',

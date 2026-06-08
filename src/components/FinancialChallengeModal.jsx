@@ -16,6 +16,7 @@ import {
 const BLANK = {
   title: '',
   goalAmount: '',
+  minimumDepositAmount: '',
   generationType: 'espelhado',
   frequency: 'diario',
   startDate: '',
@@ -51,7 +52,12 @@ export default function FinancialChallengeModal({ open, challengeId, onClose }) 
     const source =
       challenge?.deposits?.length
         ? challenge.deposits.map((d) => d.amount)
-        : generateChallengeAmounts(next.goalAmount || 10000, count, next.generationType)
+        : generateChallengeAmounts(
+            next.goalAmount || 10000,
+            count,
+            next.generationType,
+            next.minimumDepositAmount || 0,
+          )
     setCustomValues(source)
   }, [open, challengeId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -65,10 +71,15 @@ export default function FinancialChallengeModal({ open, challengeId, onClose }) 
     const count = Math.max(1, depositCount || 1)
     if (form.generationType === 'personalizado') {
       const normalized = Array.from({ length: count }, (_x, i) => customValues[i] ?? 0)
-      return normalizeCustomAmounts(normalized, form.goalAmount)
+      return normalizeCustomAmounts(normalized, form.goalAmount, form.minimumDepositAmount)
     }
-    return generateChallengeAmounts(form.goalAmount, count, form.generationType)
-  }, [open, form.goalAmount, depositCount, form.generationType, customValues])
+    return generateChallengeAmounts(
+      form.goalAmount,
+      count,
+      form.generationType,
+      form.minimumDepositAmount,
+    )
+  }, [open, form.goalAmount, form.minimumDepositAmount, depositCount, form.generationType, customValues])
 
   useEffect(() => {
     if (!open || form.generationType !== 'personalizado') return
@@ -86,17 +97,35 @@ export default function FinancialChallengeModal({ open, challengeId, onClose }) 
     const err = {}
     if (!form.title.trim()) err.title = 'Informe o nome do desafio.'
     if (Number(form.goalAmount) <= 0) err.goalAmount = 'Informe uma meta maior que zero.'
+    if (Number(form.minimumDepositAmount) < 0) err.minimumDepositAmount = 'Informe um valor válido.'
     if (!form.endDate) err.endDate = 'Informe a data final para calcular os depósitos diários.'
     if (form.endDate && depositCount <= 0) {
       err.endDate = 'A data final precisa ser igual ou posterior à data inicial.'
     }
     if (depositCount > 1000) err.endDate = 'Use um período com no máximo 1000 depósitos diários.'
+    if (
+      Number(form.goalAmount) > 0 &&
+      depositCount > 0 &&
+      Number(form.minimumDepositAmount) > 0 &&
+      Number(form.minimumDepositAmount) * depositCount > Number(form.goalAmount)
+    ) {
+      err.minimumDepositAmount = `Com ${depositCount} depósitos, a meta precisa ser pelo menos ${currency(
+        Number(form.minimumDepositAmount) * depositCount,
+      )}.`
+    }
     setErrors(err)
     return Object.keys(err).length === 0
   }
 
   const regenerateCustom = () => {
-    setCustomValues(generateChallengeAmounts(form.goalAmount, depositCount || 1, 'crescente'))
+    setCustomValues(
+      generateChallengeAmounts(
+        form.goalAmount,
+        depositCount || 1,
+        'crescente',
+        form.minimumDepositAmount,
+      ),
+    )
   }
 
   const handleSave = () => {
@@ -114,11 +143,13 @@ export default function FinancialChallengeModal({ open, challengeId, onClose }) 
             amount: form.generationType === 'personalizado' ? baseValues[index] : deposit.amount,
           }))
         : baseValues.map((amount, index) => ({ id: `dep_${index + 1}`, amount })),
+      form.minimumDepositAmount,
     )
 
     const payload = {
       title: form.title.trim(),
       goalAmount,
+      minimumDepositAmount: Number(form.minimumDepositAmount) || 0,
       depositCount: count,
       generationType: form.generationType,
       frequency: 'diario',
@@ -156,7 +187,7 @@ export default function FinancialChallengeModal({ open, challengeId, onClose }) 
         </>
       }
     >
-      <div className="form-row cols-2">
+      <div className="form-row cols-3">
         <Field label="Nome do desafio" required error={errors.title}>
           <input
             className={`input ${errors.title ? 'error' : ''}`}
@@ -174,6 +205,17 @@ export default function FinancialChallengeModal({ open, challengeId, onClose }) 
             value={form.goalAmount}
             onChange={set('goalAmount')}
             placeholder="10000"
+          />
+        </Field>
+        <Field label="Valor inicial mínimo" error={errors.minimumDepositAmount}>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className={`input ${errors.minimumDepositAmount ? 'error' : ''}`}
+            value={form.minimumDepositAmount}
+            onChange={set('minimumDepositAmount')}
+            placeholder="10"
           />
         </Field>
       </div>
@@ -233,7 +275,7 @@ export default function FinancialChallengeModal({ open, challengeId, onClose }) 
                 <span>#{index + 1}</span>
                 <input
                   type="number"
-                  min="0"
+                  min={form.minimumDepositAmount || 0}
                   step="0.01"
                   className="input"
                   value={customValues[index] ?? value}
@@ -264,6 +306,10 @@ export default function FinancialChallengeModal({ open, challengeId, onClose }) 
         <div>
           <div className="text-xs text-2">Meta configurada</div>
           <strong>{currency(form.goalAmount)}</strong>
+        </div>
+        <div>
+          <div className="text-xs text-2">Valor inicial mínimo</div>
+          <strong>{currency(form.minimumDepositAmount)}</strong>
         </div>
       </div>
     </Modal>
