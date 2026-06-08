@@ -45,6 +45,7 @@ function emptyDB() {
       monthlyGoal: 0,
       dashboardMetrics: null,
       financeiroMetrics: null,
+      financialChallenges: [],
     },
     // metadados internos do app (não persistidos)
     _loading: false,
@@ -61,6 +62,18 @@ function emit() {
 function setDBState(next) {
   db = next
   emit()
+}
+
+function syncFinancialChallengesSettings(list, userId = db._userId) {
+  if (!userId) return
+  const nextSettings = { ...db.settings, financialChallenges: list }
+  supabase
+    .from('profiles')
+    .update({ settings: nextSettings })
+    .eq('id', userId)
+    .then(({ error }) => {
+      if (error) console.warn('[store] fallback financialChallenges falhou:', error.message)
+    })
 }
 
 export function getDB() {
@@ -219,10 +232,20 @@ async function _doLoadForUser(userId) {
     const res = collectionResults[i]
     if (res.error) {
       console.warn(`[store] erro ao carregar ${c}:`, res.error.message)
-      next[c] = []
+      next[c] =
+        c === 'financialChallenges' && Array.isArray(next.settings.financialChallenges)
+          ? next.settings.financialChallenges
+          : []
       return
     }
-    next[c] = (res.data || []).map(rowToObject)
+    const rows = (res.data || []).map(rowToObject)
+    next[c] =
+      c === 'financialChallenges' &&
+      rows.length === 0 &&
+      Array.isArray(next.settings.financialChallenges) &&
+      next.settings.financialChallenges.length
+        ? next.settings.financialChallenges
+        : rows
   })
   setDBState(next)
 }
@@ -274,10 +297,16 @@ export function insert(collection, item) {
     createdAt: new Date().toISOString(),
     ...item,
   }
-  setDBState({
+  const nextList = [record, ...(db[collection] || [])]
+  const nextState = {
     ...db,
-    [collection]: [record, ...(db[collection] || [])],
-  })
+    [collection]: nextList,
+  }
+  if (collection === 'financialChallenges') {
+    nextState.settings = { ...db.settings, financialChallenges: nextList }
+  }
+  setDBState(nextState)
+  if (collection === 'financialChallenges') syncFinancialChallengesSettings(nextList, userId)
 
   // Dispara no Supabase. Guarda a Promise pra quem quiser aguardar.
   const row = {
@@ -333,10 +362,16 @@ export function update(collection, id, patchOrFn) {
   const patch = typeof patchOrFn === 'function' ? patchOrFn(current) : patchOrFn
   const updated = { ...current, ...patch }
 
-  setDBState({
+  const nextList = db[collection].map((x) => (x.id === id ? updated : x))
+  const nextState = {
     ...db,
-    [collection]: db[collection].map((x) => (x.id === id ? updated : x)),
-  })
+    [collection]: nextList,
+  }
+  if (collection === 'financialChallenges') {
+    nextState.settings = { ...db.settings, financialChallenges: nextList }
+  }
+  setDBState(nextState)
+  if (collection === 'financialChallenges') syncFinancialChallengesSettings(nextList)
 
   // "users" → atualiza o profile correspondente (só funciona pro próprio usuário)
   if (collection === 'users') {
@@ -377,10 +412,16 @@ export function remove(collection, id) {
     )
     return
   }
-  setDBState({
+  const nextList = db[collection].filter((x) => x.id !== id)
+  const nextState = {
     ...db,
-    [collection]: db[collection].filter((x) => x.id !== id),
-  })
+    [collection]: nextList,
+  }
+  if (collection === 'financialChallenges') {
+    nextState.settings = { ...db.settings, financialChallenges: nextList }
+  }
+  setDBState(nextState)
+  if (collection === 'financialChallenges') syncFinancialChallengesSettings(nextList)
 
   supabase
     .from(tableOf(collection))
@@ -442,6 +483,10 @@ export async function resetDB() {
       .eq('user_id', userId)
     if (error) console.warn(`[store] resetDB ${c}:`, error.message)
   }
+  await supabase
+    .from('profiles')
+    .update({ settings: { ...db.settings, financialChallenges: [] } })
+    .eq('id', userId)
   await loadForUser(userId)
 }
 
@@ -469,6 +514,10 @@ export async function resetEmpty() {
       .eq('user_id', userId)
     if (error) console.warn(`[store] resetEmpty ${c}:`, error.message)
   }
+  await supabase
+    .from('profiles')
+    .update({ settings: { ...db.settings, financialChallenges: [] } })
+    .eq('id', userId)
   await loadForUser(userId)
 }
 

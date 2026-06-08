@@ -1,6 +1,15 @@
 const toCents = (value) => Math.round((Number(value) || 0) * 100)
 const fromCents = (value) => Math.round(value) / 100
 
+export function dailyDepositCount(startDate, endDate) {
+  if (!endDate) return 0
+  const start = new Date(`${startDate || new Date().toISOString().slice(0, 10)}T00:00:00`)
+  const end = new Date(`${endDate}T00:00:00`)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0
+  const diff = Math.floor((end - start) / 86400000)
+  return diff >= 0 ? diff + 1 : 0
+}
+
 function weightsFor(count, type) {
   const n = Math.max(1, Number(count) || 1)
   if (type === 'decrescente') {
