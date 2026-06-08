@@ -24,7 +24,7 @@ create table if not exists public.profiles (
   is_admin     boolean     default true,
   permissions  text[]      default array[
                               'dashboard','demandas','clientes','financeiro',
-                              'propostas','servicos','relatorios','configuracoes'
+                              'desafios','propostas','servicos','relatorios','configuracoes'
                             ]::text[],
   settings     jsonb       default '{}'::jsonb,
   created_at   timestamptz default now()
@@ -184,6 +184,24 @@ create table if not exists public.financial_categories (
 );
 create index if not exists financial_categories_user_idx on public.financial_categories(user_id);
 
+-- DESAFIOS FINANCEIROS
+create table if not exists public.financial_challenges (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid not null references auth.users(id) on delete cascade,
+  title           text not null,
+  goal_amount     numeric(12, 2) default 0,
+  deposit_count   int default 0,
+  generation_type text default 'crescente',
+  frequency       text default 'livre',
+  start_date      date,
+  end_date        date,
+  status          text default 'andamento',
+  deposits        jsonb default '[]'::jsonb,
+  updated_at      timestamptz default now(),
+  created_at      timestamptz default now()
+);
+create index if not exists financial_challenges_user_idx on public.financial_challenges(user_id);
+
 -- CONTRATOS RECORRENTES (receita fixa / despesa recorrente)
 create table if not exists public.recurring_contracts (
   id             uuid primary key default gen_random_uuid(),
@@ -307,6 +325,13 @@ create policy "fin_cat_select_own" on public.financial_categories for select usi
 create policy "fin_cat_insert_own" on public.financial_categories for insert with check (auth.uid() = user_id);
 create policy "fin_cat_update_own" on public.financial_categories for update using (auth.uid() = user_id);
 create policy "fin_cat_delete_own" on public.financial_categories for delete using (auth.uid() = user_id);
+
+-- FINANCIAL_CHALLENGES
+alter table public.financial_challenges enable row level security;
+create policy "fin_challenges_select_own" on public.financial_challenges for select using (auth.uid() = user_id);
+create policy "fin_challenges_insert_own" on public.financial_challenges for insert with check (auth.uid() = user_id);
+create policy "fin_challenges_update_own" on public.financial_challenges for update using (auth.uid() = user_id);
+create policy "fin_challenges_delete_own" on public.financial_challenges for delete using (auth.uid() = user_id);
 
 -- RECURRING_CONTRACTS
 alter table public.recurring_contracts enable row level security;

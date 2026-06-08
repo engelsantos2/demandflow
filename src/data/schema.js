@@ -13,6 +13,7 @@ export const TABLES = {
   proposalItems: 'proposal_items',
   bankAccounts: 'bank_accounts',
   financialCategories: 'financial_categories',
+  financialChallenges: 'financial_challenges',
   recurringContracts: 'recurring_contracts',
   financialEntries: 'financial_entries',
 }

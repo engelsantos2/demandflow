@@ -4,6 +4,7 @@ export const PERMISSION_MODULES = [
   { id: 'demandas', label: 'Demandas', path: '/demandas' },
   { id: 'clientes', label: 'Clientes', path: '/clientes' },
   { id: 'financeiro', label: 'Financeiro', path: '/financeiro' },
+  { id: 'desafios', label: 'Desafios financeiros', path: '/desafios' },
   { id: 'propostas', label: 'Propostas', path: '/propostas' },
   { id: 'servicos', label: 'Produtos / Serviços', path: '/servicos' },
   { id: 'relatorios', label: 'Relatórios', path: '/relatorios' },

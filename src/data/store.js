@@ -28,6 +28,7 @@ function emptyDB() {
     proposalItems: [],
     bankAccounts: [],
     financialCategories: [],
+    financialChallenges: [],
     recurringContracts: [],
     financialEntries: [],
     // settings vem de profiles.settings (jsonb)
@@ -186,6 +187,7 @@ async function _doLoadForUser(userId) {
             'demandas',
             'clientes',
             'financeiro',
+            'desafios',
             'propostas',
             'servicos',
             'relatorios',
@@ -457,6 +459,7 @@ export async function resetEmpty() {
     'proposalItems',
     'financialEntries',
     'bankAccounts',
+    'financialChallenges',
     'recurringContracts',
   ]
   for (const c of toClear) {

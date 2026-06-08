@@ -14,6 +14,7 @@ const Demandas = lazy(() => lazyRetry(() => import('./pages/Demandas')))
 const Clientes = lazy(() => lazyRetry(() => import('./pages/Clientes')))
 const ClienteDetalhe = lazy(() => lazyRetry(() => import('./pages/ClienteDetalhe')))
 const Financeiro = lazy(() => lazyRetry(() => import('./pages/Financeiro')))
+const Desafios = lazy(() => lazyRetry(() => import('./pages/Desafios')))
 const Propostas = lazy(() => lazyRetry(() => import('./pages/Propostas')))
 const Produtos = lazy(() => lazyRetry(() => import('./pages/Produtos')))
 const Relatorios = lazy(() => lazyRetry(() => import('./pages/Relatorios')))
@@ -87,6 +88,7 @@ export default function App() {
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/clientes/:id" element={<ClienteDetalhe />} />
               <Route path="/financeiro" element={<Financeiro />} />
+              <Route path="/desafios" element={<Desafios />} />
               <Route path="/propostas" element={<Propostas />} />
               <Route path="/servicos" element={<Produtos />} />
               <Route path="/relatorios" element={<Relatorios />} />

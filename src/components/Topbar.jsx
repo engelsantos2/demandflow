@@ -9,6 +9,7 @@ import {
   KanbanSquare,
   FileText,
   Package,
+  Trophy,
   CalendarClock,
   AlertTriangle,
   LogOut,
@@ -27,6 +28,7 @@ const KIND_ICON = {
   Cliente: Users,
   Demanda: KanbanSquare,
   Proposta: FileText,
+  Desafio: Trophy,
   Serviço: Package,
 }
 
@@ -58,6 +60,11 @@ export default function Topbar({ onToggleNav }) {
     db.services.forEach((s) => {
       if (s.name.toLowerCase().includes(q))
         out.push({ kind: 'Serviço', label: s.name, to: `/servicos` })
+    })
+    ;(db.financialChallenges || []).forEach((challenge) => {
+      if (challenge.title?.toLowerCase().includes(q)) {
+        out.push({ kind: 'Desafio', label: challenge.title, to: '/desafios' })
+      }
     })
     return out.slice(0, 8)
   }, [query, db])

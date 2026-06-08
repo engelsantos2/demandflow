@@ -6,6 +6,7 @@ export function buildSeed() {
     'demandas',
     'clientes',
     'financeiro',
+    'desafios',
     'propostas',
     'servicos',
     'relatorios',
@@ -30,7 +31,7 @@ export function buildSeed() {
       position: 'Designer Sênior',
       password: 'demandflow',
       isAdmin: false,
-      permissions: ['dashboard', 'demandas', 'clientes', 'propostas', 'servicos', 'relatorios'],
+      permissions: ['dashboard', 'demandas', 'clientes', 'desafios', 'propostas', 'servicos', 'relatorios'],
       createdAt: '2026-02-12T09:00:00Z',
     },
     {
@@ -40,7 +41,7 @@ export function buildSeed() {
       position: 'Desenvolvedor',
       password: 'demandflow',
       isAdmin: false,
-      permissions: ['dashboard', 'demandas', 'clientes', 'servicos'],
+      permissions: ['dashboard', 'demandas', 'clientes', 'desafios', 'servicos'],
       createdAt: '2026-03-01T09:00:00Z',
     },
   ]
@@ -408,6 +409,8 @@ export function buildSeed() {
     },
   ]
 
+  const financialChallenges = []
+
   return {
     version: 5,
     users,
@@ -418,6 +421,7 @@ export function buildSeed() {
     proposalItems,
     financialEntries,
     bankAccounts,
+    financialChallenges,
     recurringContracts,
     financialCategories,
     settings,
